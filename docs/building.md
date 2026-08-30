@@ -80,6 +80,28 @@ dependency install, the installer resolve/extract dispatch, and packaging
 dispatch. It doesn't reimplement staging itself. So if you're tracing a
 problem, the real work lives in those two layers underneath.
 
+### NixOS
+
+The Nix flake builds only from a full Squirrel installer you supplied; it never
+downloads, hosts, or redistributes Wispr Flow bytes.
+
+```bash
+WISPR_FLOW_EXE='/absolute/path/to/Wispr Flow Setup-v1.6.7.exe' \
+  nix build .#wispr-flow-fhs --impure
+```
+
+The input must unpack to a `*-full.nupkg` payload. Wispr's small web
+bootstrapper is not an input the repackaging pipeline can use. The default FHS
+package provides the loader and clipboard runtime; enable its emitted udev rule
+through your NixOS configuration before relying on text injection or
+push-to-talk:
+
+```nix
+services.udev.packages = [ inputs.wispr-flow.packages.${pkgs.system}.wispr-flow-fhs ];
+```
+
+The input, output, and input-device policy remain local to your machine.
+
 ### Flags
 
 | Flag | Values | Meaning |

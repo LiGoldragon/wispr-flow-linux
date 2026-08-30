@@ -1,8 +1,6 @@
 {
   lib,
   stdenvNoCC,
-  rustPlatform,
-  fetchFromGitHub,
   electron_42,
   p7zip,
   icoutils,
@@ -13,6 +11,8 @@
   python3,
   bash,
   rsync,
+  runtimeInputs,
+  writeText,
   # Path to the Wispr Flow installer .exe you obtained yourself. This build never
   # fetches the proprietary app (see the Source block below for how to supply it).
   installerExe ? null,
@@ -28,7 +28,7 @@ let
   # obtained yourself, mirroring `build.sh --exe`. Supply it either way:
   #
   #   * impure env var (the flake default):
-  #       WISPR_FLOW_EXE="/abs/path/Wispr Flow Setup-v1.5.619.exe" \
+  #       WISPR_FLOW_EXE="/abs/path/Wispr Flow Setup-v${version}.exe" \
   #         nix build .#wispr-flow-fhs --impure
   #
   #   * package override (overlay / non-flake callers):
@@ -36,86 +36,54 @@ let
   #
   # Wispr ships only a win32/x64 installer (no win32/arm64 variant is known), so
   # the aarch64 build reuses the same x64 .exe — the payload is the
-  # cross-platform Electron app, and the native Rust helper is built per-arch by
-  # rustPlatform below, so one .exe drives both outputs.
+  # cross-platform Electron app; the helper and native modules are selected per
+  # architecture below, so one .exe drives both outputs.
   #============================================================================
   installerEnv = builtins.getEnv "WISPR_FLOW_EXE";
+  installerProvided = installerExe != null || installerEnv != "";
   resolvedExe =
-    if installerExe != null then installerExe
-    else if installerEnv != "" then /. + installerEnv
-    else throw ''
-      wispr-flow: no installer supplied. This build never downloads the
-      proprietary Wispr Flow app — provide the Setup .exe you obtained yourself:
-
-        WISPR_FLOW_EXE="/abs/path/Wispr Flow Setup-v${version}.exe" \
-          nix build .#wispr-flow-fhs --impure
-
-      or override the package:
-        wispr-flow.override { installerExe = /abs/path/to/Setup.exe; }
-    '';
+    if installerExe != null then
+      installerExe
+    else if installerEnv != "" then
+      /. + installerEnv
+    else
+      null;
 
   # Copy the supplied .exe into the store under a fixed, space-free name so the
   # derivation hash is independent of where the file lived on disk.
-  src = builtins.path {
-    path = resolvedExe;
-    name = "wispr-flow-setup-${version}.exe";
-  };
+  src =
+    if installerProvided then
+      builtins.path {
+        path = resolvedExe;
+        name = "wispr-flow-setup-${version}.exe";
+      }
+    else
+      writeText "wispr-flow-missing-installer" ''
+        wispr-flow: no installer supplied. This build never downloads the
+        proprietary Wispr Flow app — provide the Setup .exe you obtained yourself:
+
+          WISPR_FLOW_EXE="/abs/path/Wispr Flow Setup-v${version}.exe" \
+          nix build .#wispr-flow-fhs --impure
+
+        or override the package:
+          wispr-flow.override { installerExe = /abs/path/to/Setup.exe; }
+      '';
 
   # Repo root, used to reach scripts/ from the build.
   # build-reference / build-linux / extract / result are excluded so a dirty
   # working tree does not bust the derivation hash.
   sourceRoot = lib.cleanSourceWith {
     src = ./..;
-    filter = path: type:
-      let rel = lib.removePrefix (toString ./.. + "/") path;
-      in !(lib.hasPrefix "build-linux" rel)
+    filter =
+      path: type:
+      let
+        rel = lib.removePrefix (toString ./.. + "/") path;
+      in
+      !(lib.hasPrefix "build-linux" rel)
       && !(lib.hasPrefix "extract" rel)
       && !(lib.hasPrefix "logs" rel)
       && !(lib.hasPrefix "tools" rel)
       && !(lib.hasPrefix "result" rel);
-  };
-
-  #============================================================================
-  # The clean-room Linux helper, built from its own repo
-  # (github.com/wispr-flow-linux/helper) via Cargo.
-  #
-  # The crate has a committed Cargo.lock, so cargoLock.lockFile gives a fully
-  # reproducible, vendored build off the fetched source. Produces
-  # `wispr-flow-linux-helper`, which the install phase stages at
-  # resources/Release/wispr-flow-linux-helper (mode 0755) where the patched
-  # main bundle's 'linux' branch looks for it.
-  #============================================================================
-  # NOTE: nix is unavailable in the environment this was wired up in, so the
-  # real fixed-output (FOD) hash for the GitHub fetch cannot be computed here.
-  # The first `nix build` WILL FAIL and print the correct `hash = ...`; paste
-  # that value over lib.fakeHash below.
-  helperSrc = fetchFromGitHub {
-    owner = "wispr-flow-linux";
-    repo = "helper";
-    rev = "v0.1.0";
-    hash = lib.fakeHash;
-  };
-
-  linux-helper = rustPlatform.buildRustPackage {
-    pname = "wispr-flow-linux-helper";
-    version = "0.1.0";
-
-    src = helperSrc;
-
-    cargoLock.lockFile = "${helperSrc}/Cargo.lock";
-
-    # The crate speaks XCB/Wayland/uinput wire protocols directly (pure-Rust:
-    # x11rb, wayland-client, zbus, libc) — no C library dev headers needed, so
-    # no buildInputs. The Python helper scripts in the crate dir are test
-    # tooling, not part of the cargo build.
-    doCheck = false;
-
-    meta = with lib; {
-      description = "Clean-room Linux helper for Wispr Flow (X11/Wayland text injection, window + selection)";
-      license = with licenses; [ mit asl20 ];
-      platforms = platforms.linux;
-      mainProgram = "wispr-flow-linux-helper";
-    };
   };
 
   # The unwrapped electron derivation holds the real ELF + Chromium resources
@@ -135,8 +103,17 @@ let
     genericName = "Voice Dictation";
     comment = "Voice dictation that types into your focused app";
     startupWMClass = "Wispr Flow";
-    categories = [ "Utility" "AudioVideo" "Audio" ];
-    keywords = [ "voice" "dictation" "speech" "transcription" ];
+    categories = [
+      "Utility"
+      "AudioVideo"
+      "Audio"
+    ];
+    keywords = [
+      "voice"
+      "dictation"
+      "speech"
+      "transcription"
+    ];
   };
 in
 stdenvNoCC.mkDerivation {
@@ -169,24 +146,28 @@ stdenvNoCC.mkDerivation {
   # because its build.sh stages everything inline; ours doesn't, so calling the
   # staging scripts' deterministic parts directly is the cleaner path.
   #
-  # NATIVE-MODULE NOTE: the shipped better-sqlite3-multiple-ciphers + sqlite3
-  # *.node are Windows PE binaries and must be rebuilt for the Linux Electron 42
-  # ABI (see scripts/build-linux.sh step 4 and the V8 14.8 patch under
-  # scripts/patches/). That rebuild needs npm deps + a toolchain and is not
-  # hermetic here, so it is NOT performed in this derivation: the app launches
-  # but DB-backed features stay broken until rebuilt natives are supplied. This
-  # matches the deb/rpm makers, which also consume a pre-staged tree. A future
-  # iteration can add a buildRustPackage-style fixed-output native build.
+  # Native modules and the helper follow the proven packaging pipeline: they are
+  # clean-room, pinned release assets. The module release has a verified Electron
+  # ABI and patch provenance; see nix/runtime-inputs.nix and runtime check.
   #==========================================================================
   buildPhase = ''
     runHook preBuild
 
     export HOME=$TMPDIR
 
+    if [[ ${lib.boolToString installerProvided} != true ]]; then
+      cat "$src" >&2
+      exit 1
+    fi
+
     #-- 1. Extract the Squirrel .exe -> *-full.nupkg -> Electron payload -----
     7z x -y "$src" -oinstaller >/dev/null
     nupkg=$(find installer -iname '*-full.nupkg' | head -1)
-    [[ -n "$nupkg" ]] || { echo "no *-full.nupkg in installer" >&2; exit 1; }
+    [[ -n "$nupkg" ]] || {
+      echo 'installer has no *-full.nupkg payload; provide the full Squirrel' >&2
+      echo 'installer, not a web bootstrapper.' >&2
+      exit 1
+    }
     7z x -y "$nupkg" -onupkg >/dev/null
 
     net45=nupkg/lib/net45
@@ -206,25 +187,50 @@ stdenvNoCC.mkDerivation {
     main_bundle=asar-contents/.webpack/main/index.js
     [[ -f "$main_bundle" ]] || { echo "main bundle not found at $main_bundle" >&2; exit 1; }
 
-    # Add the 'linux' helper-path branch + gate the macOS Applications guard.
+    # Apply the complete current Linux patch suite used by build-linux.sh.
     bash ${sourceRoot}/scripts/patches/helper-resolver.sh "$main_bundle"
+    bash ${sourceRoot}/scripts/patches/helper-env.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/mac-gates.sh "$main_bundle"
+    bash ${sourceRoot}/scripts/patches/linux-window-frame.sh "$main_bundle"
+    bash ${sourceRoot}/scripts/patches/linux-deeplink.sh "$main_bundle"
 
-    # Stage the unpacked native-module tree (Windows *.node kept as-is — see the
-    # NATIVE-MODULE NOTE above) and drop the win-ca crypt32 Windows bindings.
+    webpack_root="${"$"}{main_bundle%/main/index.js}"
+    hub_renderer="$webpack_root/renderer/hub/index.js"
+    [[ -f "$hub_renderer" ]] || { echo "hub renderer not found" >&2; exit 1; }
+    bash ${sourceRoot}/scripts/patches/linux-renderer-chrome.sh "$hub_renderer"
+    renderer_count=0
+    for renderer in "$webpack_root"/renderer/*/index.js; do
+      [[ -f "$renderer" ]] || continue
+      grep -qF 'platform?.isWindows' "$renderer" || continue
+      bash ${sourceRoot}/scripts/patches/linux-renderer-treat-as-windows.sh "$renderer"
+      renderer_count=$((renderer_count + 1))
+    done
+    (( renderer_count > 0 )) || { echo "no Windows-gated renderer found" >&2; exit 1; }
+
+    # Stage and replace the Windows modules in BOTH locations Electron may load.
     if [[ -d "$resources_src/app.asar.unpacked" ]]; then
       mkdir -p stage/app.asar.unpacked
       cp -a "$resources_src/app.asar.unpacked/." stage/app.asar.unpacked/
-      rm -f stage/app.asar.unpacked/.webpack/main/native_modules/lib/crypt32-*.node || true
     fi
+    native_rel=.webpack/main/native_modules/build/Release
+    mkdir -p "asar-contents/$native_rel" "stage/app.asar.unpacked/$native_rel"
+    install -m644 ${runtimeInputs.betterSqlite} \
+      "asar-contents/$native_rel/better_sqlite3.node"
+    install -m644 ${runtimeInputs.sqlite} \
+      "asar-contents/$native_rel/node_sqlite3.node"
+    install -m644 ${runtimeInputs.betterSqlite} \
+      "stage/app.asar.unpacked/$native_rel/better_sqlite3.node"
+    install -m644 ${runtimeInputs.sqlite} \
+      "stage/app.asar.unpacked/$native_rel/node_sqlite3.node"
+    rm -f stage/app.asar.unpacked/.webpack/main/native_modules/lib/crypt32-*.node
 
-    # Repack with native modules left unpacked, then verify the Linux markers.
+    # Repack with native modules left unpacked, then verify every Linux marker.
     asar pack asar-contents stage/app.asar --unpack '**/*.node'
     bash ${sourceRoot}/scripts/verify-patches.sh stage/app.asar
 
     #-- 4. Stage the clean-room Linux helper (mode 0755 — the app does not chmod)
     mkdir -p stage/Release
-    cp ${linux-helper}/bin/wispr-flow-linux-helper stage/Release/wispr-flow-linux-helper
+    cp ${runtimeInputs.helper} stage/Release/wispr-flow-linux-helper
     chmod 0755 stage/Release/wispr-flow-linux-helper
     rm -f "stage/Release/Wispr Flow Helper.exe" || true
 
@@ -237,152 +243,159 @@ stdenvNoCC.mkDerivation {
   # /proc/self/exe resolves here.
   #==========================================================================
   installPhase = ''
-    runHook preInstall
+        runHook preInstall
 
-    #-- Custom Electron tree with app resources co-located -------------------
-    # (Same rationale as the reference: Chromium derives resourcesPath from
-    # /proc/self/exe, so the binary must live next to the app's resources.)
-    electron_tree=$out/lib/wispr-flow/electron
-    mkdir -p $electron_tree/resources
+        #-- Custom Electron tree with app resources co-located -------------------
+        # (Same rationale as the reference: Chromium derives resourcesPath from
+        # /proc/self/exe, so the binary must live next to the app's resources.)
+        electron_tree=$out/lib/wispr-flow/electron
+        mkdir -p $electron_tree/resources
 
-    # Copy the ELF as a REAL file named 'wispr-flow' (not 'electron') — both for
-    # /proc/self/exe and because Electron sets app.isPackaged=false when the
-    # binary is named 'electron', which breaks the 92 DB migrations.
-    cp ${electronDir}/electron $electron_tree/wispr-flow
-    chmod +x $electron_tree/wispr-flow
+        # Copy the ELF as a REAL file named 'wispr-flow' (not 'electron') — both for
+        # /proc/self/exe and because Electron sets app.isPackaged=false when the
+        # binary is named 'electron', which breaks the 92 DB migrations.
+        cp ${electronDir}/electron $electron_tree/wispr-flow
+        chmod +x $electron_tree/wispr-flow
 
-    # Symlink everything else from electron-unwrapped.
-    for item in ${electronDir}/*; do
-      name=$(basename "$item")
-      [[ "$name" = "electron" ]] && continue
-      [[ "$name" = "resources" ]] && continue
-      ln -s "$item" "$electron_tree/$name"
-    done
+        # Symlink everything else from electron-unwrapped.
+        for item in ${electronDir}/*; do
+          name=$(basename "$item")
+          [[ "$name" = "electron" ]] && continue
+          [[ "$name" = "resources" ]] && continue
+          ln -s "$item" "$electron_tree/$name"
+        done
 
-    # Start resources/ from Electron's own (default_app.asar, etc.).
-    for item in ${electronDir}/resources/*; do
-      ln -s "$item" "$electron_tree/resources/$(basename "$item")"
-    done
+        # Start resources/ from Electron's own (default_app.asar, etc.).
+        for item in ${electronDir}/resources/*; do
+          ln -s "$item" "$electron_tree/resources/$(basename "$item")"
+        done
 
-    # Merge the staged Wispr resource tree (app.asar, app.asar.unpacked,
-    # Release/, migrations/, assets/, *.mcpb, ...) into resources/.
-    cp -r stage/* $electron_tree/resources/
+        # Merge the staged Wispr resource tree (app.asar, app.asar.unpacked,
+        # Release/, migrations/, assets/, *.mcpb, ...) into resources/.
+        cp -r stage/* $electron_tree/resources/
 
-    # Convenience symlink used by the launcher.
-    ln -s $electron_tree/resources $out/lib/wispr-flow/resources
+        # Convenience symlink used by the launcher.
+        ln -s $electron_tree/resources $out/lib/wispr-flow/resources
 
-    #-- Electron wrapper: keep stock electron's GTK/GIO/GDK env, exec our ELF -
-    head -n -1 ${electron_42}/bin/electron > $electron_tree/electron-wrapper
-    echo "exec \"$electron_tree/wispr-flow\" \"\$@\"" >> $electron_tree/electron-wrapper
-    chmod +x $electron_tree/electron-wrapper
-    substituteInPlace $electron_tree/electron-wrapper \
-      --replace-quiet "${electron_42}/libexec/electron/chrome-sandbox" \
-        "$electron_tree/chrome-sandbox"
+        #-- Electron wrapper: retain the stock GTK/GIO/GDK environment setup -----
+        # The nixpkgs wrapper is more than a shebang; copying only its first line
+        # loses GIO modules, schemas, pixbuf loaders, and CHROME_DEVEL_SANDBOX.
+        # Retarget its final exec to our renamed ELF instead.
+        cp ${electron_42}/bin/electron $electron_tree/electron-wrapper
+        chmod +x $electron_tree/electron-wrapper
+        substituteInPlace $electron_tree/electron-wrapper \
+          --replace-fail "${electronUnwrapped}/libexec/electron/electron" \
+            "$electron_tree/wispr-flow" \
+          --replace-quiet "${electron_42}/libexec/electron/chrome-sandbox" \
+            "$electron_tree/chrome-sandbox"
 
-    #-- Icons ----------------------------------------------------------------
-    icon_png=$electron_tree/resources/assets/logos/wispr-logo.png
-    if [[ -f "$icon_png" ]]; then
-      install -Dm644 "$icon_png" \
-        $out/share/icons/hicolor/256x256/apps/wispr-flow.png
+        #-- Icons ----------------------------------------------------------------
+        icon_png=$electron_tree/resources/assets/logos/wispr-logo.png
+        if [[ -f "$icon_png" ]]; then
+          install -Dm644 "$icon_png" \
+            $out/share/icons/hicolor/256x256/apps/wispr-flow.png
+        fi
+        icon_svg=$electron_tree/resources/assets/logos/wispr-flow.svg
+        if [[ -f "$icon_svg" ]]; then
+          install -Dm644 "$icon_svg" \
+            $out/share/icons/hicolor/scalable/apps/wispr-flow.svg
+        fi
+
+        #-- Shared launcher library + doctor (launcher-common.sh sources doctor.sh
+        #   from the same dir, so both must be co-located) ------------------------
+        install -Dm755 ${sourceRoot}/scripts/launcher-common.sh \
+          $out/lib/wispr-flow/launcher-common.sh
+        install -Dm755 ${sourceRoot}/scripts/doctor.sh \
+          $out/lib/wispr-flow/doctor.sh
+
+        #-- .desktop file --------------------------------------------------------
+        mkdir -p $out/share/applications
+        install -Dm644 ${desktopItem}/share/applications/* $out/share/applications/
+
+        #-- input access udev rule ------------------------------------------------
+        # A user package cannot install into /etc/udev or /usr/lib/udev at runtime.
+        # We emit the rule to $out/lib/udev/rules.d/; on NixOS wire it up with:
+        #
+        #   services.udev.packages = [ pkgs.wispr-flow ];   # or the fhs wrapper
+        #
+        # which symlinks it into the active rules set. Without it, keystroke
+        # injection (/dev/uinput) and push-to-talk (/dev/input read) need the user
+        # in the 'input' group + a matching rule. Keep in sync with deb.sh, rpm.sh,
+        # and the launcher's _wispr_udev_rules_content (scripts/launcher-common.sh).
+        mkdir -p $out/lib/udev/rules.d
+        cat > $out/lib/udev/rules.d/70-wispr-flow-uinput.rules <<'UDEV'
+    # Wispr Flow: grant the active-session user the input access the helper needs.
+    #  - write /dev/uinput        — keystroke injection (PasteText/SimulateKeyPress)
+    #  - read  /dev/input/event*  — global key monitor for push-to-talk and the
+    #                               in-app shortcut recorder
+    # TAG+="uaccess" scopes the grant to the active logind session; the input group
+    # + 0660 is the cross-distro fallback (then `usermod -aG input $USER` + re-login).
+    KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uaccess", GROUP="input", MODE="0660"
+    SUBSYSTEM=="input", KERNEL=="event*", TAG+="uaccess", GROUP="input", MODE="0660"
+    UDEV
+
+        #-- Launcher /bin/wispr-flow ---------------------------------------------
+        mkdir -p $out/bin
+        cat > $out/bin/wispr-flow <<'LAUNCHER'
+    #!/usr/bin/env bash
+    # Wispr Flow launcher for NixOS. Sources the shared launcher library, runs the
+    # doctor on --doctor, sets up logging + Electron env, then exec's our custom
+    # Electron wrapper (which sets GTK/GIO env then runs the merged ELF).
+
+    set -uo pipefail
+
+    electron_exec="ELECTRON_PLACEHOLDER"
+    helper_bin="RESOURCES_PLACEHOLDER/Release/wispr-flow-linux-helper"
+
+    # shellcheck source=/dev/null
+    source "LAUNCHER_LIB_PLACEHOLDER"
+
+    # Handle --doctor before anything else.
+    if [[ "''${1:-}" == '--doctor' ]]; then
+    	run_doctor "$helper_bin"
+    	exit $?
     fi
-    icon_svg=$electron_tree/resources/assets/logos/wispr-flow.svg
-    if [[ -f "$icon_svg" ]]; then
-      install -Dm644 "$icon_svg" \
-        $out/share/icons/hicolor/scalable/apps/wispr-flow.svg
+
+    setup_logging || exit 1
+    setup_electron_env
+    cleanup_stale_lock
+
+    log_message '--- Wispr Flow Launcher Start (NixOS) ---'
+    log_message "Timestamp: $(date)"
+    log_message "Arguments: $*"
+    log_session_env
+
+    if ! check_display; then
+    	log_message 'No display detected (TTY session)'
+    	echo 'Error: Wispr Flow requires a graphical desktop environment.' >&2
+    	echo 'Run from within a Wayland or X11 session, not a TTY.' >&2
+    	echo 'Tip: run "wispr-flow --doctor" to diagnose your setup.' >&2
+    	exit 1
     fi
 
-    #-- Shared launcher library + doctor (launcher-common.sh sources doctor.sh
-    #   from the same dir, so both must be co-located) ------------------------
-    install -Dm755 ${sourceRoot}/scripts/launcher-common.sh \
-      $out/lib/wispr-flow/launcher-common.sh
-    install -Dm755 ${sourceRoot}/scripts/doctor.sh \
-      $out/lib/wispr-flow/doctor.sh
+    detect_display_backend
+    build_electron_args 'nix'
 
-    #-- .desktop file --------------------------------------------------------
-    mkdir -p $out/share/applications
-    install -Dm644 ${desktopItem}/share/applications/* $out/share/applications/
+    log_message "Executing: $electron_exec ''${electron_args[*]} $*"
+    exec "$electron_exec" "''${electron_args[@]}" "$@" >> "$log_file" 2>&1
+    LAUNCHER
+        substituteInPlace $out/bin/wispr-flow \
+          --replace-fail "ELECTRON_PLACEHOLDER" "$electron_tree/electron-wrapper" \
+          --replace-fail "RESOURCES_PLACEHOLDER" "$electron_tree/resources" \
+          --replace-fail "LAUNCHER_LIB_PLACEHOLDER" "$out/lib/wispr-flow/launcher-common.sh"
+        chmod +x $out/bin/wispr-flow
 
-    #-- input access udev rule ------------------------------------------------
-    # A user package cannot install into /etc/udev or /usr/lib/udev at runtime.
-    # We emit the rule to $out/lib/udev/rules.d/; on NixOS wire it up with:
-    #
-    #   services.udev.packages = [ pkgs.wispr-flow ];   # or the fhs wrapper
-    #
-    # which symlinks it into the active rules set. Without it, keystroke
-    # injection (/dev/uinput) and push-to-talk (/dev/input read) need the user
-    # in the 'input' group + a matching rule. Keep in sync with deb.sh, rpm.sh,
-    # and the launcher's _wispr_udev_rules_content (scripts/launcher-common.sh).
-    mkdir -p $out/lib/udev/rules.d
-    cat > $out/lib/udev/rules.d/70-wispr-flow-uinput.rules <<'UDEV'
-# Wispr Flow: grant the active-session user the input access the helper needs.
-#  - write /dev/uinput        — keystroke injection (PasteText/SimulateKeyPress)
-#  - read  /dev/input/event*  — global key monitor for push-to-talk and the
-#                               in-app shortcut recorder
-# TAG+="uaccess" scopes the grant to the active logind session; the input group
-# + 0660 is the cross-distro fallback (then `usermod -aG input $USER` + re-login).
-KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uaccess", GROUP="input", MODE="0660"
-SUBSYSTEM=="input", KERNEL=="event*", TAG+="uaccess", GROUP="input", MODE="0660"
-UDEV
-
-    #-- Launcher /bin/wispr-flow ---------------------------------------------
-    mkdir -p $out/bin
-    cat > $out/bin/wispr-flow <<'LAUNCHER'
-#!/usr/bin/env bash
-# Wispr Flow launcher for NixOS. Sources the shared launcher library, runs the
-# doctor on --doctor, sets up logging + Electron env, then exec's our custom
-# Electron wrapper (which sets GTK/GIO env then runs the merged ELF).
-
-set -uo pipefail
-
-electron_exec="ELECTRON_PLACEHOLDER"
-helper_bin="RESOURCES_PLACEHOLDER/Release/wispr-flow-linux-helper"
-
-# shellcheck source=/dev/null
-source "LAUNCHER_LIB_PLACEHOLDER"
-
-# Handle --doctor before anything else.
-if [[ "''${1:-}" == '--doctor' ]]; then
-	run_doctor "$helper_bin"
-	exit $?
-fi
-
-setup_logging || exit 1
-setup_electron_env
-cleanup_stale_lock
-
-log_message '--- Wispr Flow Launcher Start (NixOS) ---'
-log_message "Timestamp: $(date)"
-log_message "Arguments: $*"
-log_session_env
-
-if ! check_display; then
-	log_message 'No display detected (TTY session)'
-	echo 'Error: Wispr Flow requires a graphical desktop environment.' >&2
-	echo 'Run from within a Wayland or X11 session, not a TTY.' >&2
-	echo 'Tip: run "wispr-flow --doctor" to diagnose your setup.' >&2
-	exit 1
-fi
-
-detect_display_backend
-build_electron_args 'nix'
-
-log_message "Executing: $electron_exec ''${electron_args[*]} $*"
-exec "$electron_exec" "''${electron_args[@]}" "$@" >> "$log_file" 2>&1
-LAUNCHER
-    substituteInPlace $out/bin/wispr-flow \
-      --replace-fail "ELECTRON_PLACEHOLDER" "$electron_tree/electron-wrapper" \
-      --replace-fail "RESOURCES_PLACEHOLDER" "$electron_tree/resources" \
-      --replace-fail "LAUNCHER_LIB_PLACEHOLDER" "$out/lib/wispr-flow/launcher-common.sh"
-    chmod +x $out/bin/wispr-flow
-
-    runHook postInstall
+        runHook postInstall
   '';
 
   meta = with lib; {
     description = "Wispr Flow voice dictation for Linux (unofficial build)";
     homepage = "https://wisprflow.ai";
     license = licenses.unfree;
-    platforms = [ "x86_64-linux" "aarch64-linux" ];
+    platforms = [
+      "x86_64-linux"
+      "aarch64-linux"
+    ];
     sourceProvenance = with sourceTypes; [ binaryNativeCode ];
     mainProgram = "wispr-flow";
   };

@@ -8,6 +8,14 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Fixed
+
+- The Nix flake now stages the same complete Linux runtime as the packaging
+  pipeline: the pinned clean-room helper, ABI-146 Linux SQLite addons, and all
+  required main/renderer Linux patches. It preserves nixpkgs' Electron runtime
+  wrapper environment, provides a Nix check for the pinned runtime assets, and
+  refuses a web bootstrapper with a clear full-Squirrel-installer error.
+
 ## [v1.0.3] - 2026-06-11
 
 ### Fixed
