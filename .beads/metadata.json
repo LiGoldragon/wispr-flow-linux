@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "wispr_flow_linux",
+  "project_id": "1bb6d240-5612-45c6-96aa-791f9832d08d"
+}
