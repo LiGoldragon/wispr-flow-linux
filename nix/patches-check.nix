@@ -22,6 +22,7 @@ runCommand "wispr-flow-linux-patches-check"
   }
   ''
     bats \
+      ${sourceRoot}/tests/launcher-common.bats \
       ${sourceRoot}/tests/linux-patches.bats \
       ${sourceRoot}/tests/verify-patches.bats
 

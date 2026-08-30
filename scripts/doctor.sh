@@ -58,15 +58,12 @@ _doctor_config_dir() {
 # Display / session backend.
 #------------------------------------------------------------------------------
 _doctor_check_display() {
-	if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
-		_pass "Display server: Wayland (WAYLAND_DISPLAY=$WAYLAND_DISPLAY)"
-		if [[ ${WISPR_USE_WAYLAND:-} == '1' ]]; then
-			_info 'Mode: native Wayland forced (WISPR_USE_WAYLAND=1)'
-		else
-			_info 'Mode: Electron Ozone auto-detect (default)'
-		fi
-	elif [[ -n ${DISPLAY:-} ]]; then
+	if [[ -n ${DISPLAY:-} ]]; then
 		_pass "Display server: X11 (DISPLAY=$DISPLAY)"
+		_info 'Mode: X11/XWayland selected because DISPLAY is available'
+	elif [[ -n ${WAYLAND_DISPLAY:-} ]]; then
+		_pass "Display server: Wayland (WAYLAND_DISPLAY=$WAYLAND_DISPLAY)"
+		_info 'Mode: native Wayland selected because DISPLAY is unavailable'
 	else
 		_fail 'No display server detected' \
 			'(DISPLAY and WAYLAND_DISPLAY are unset)'

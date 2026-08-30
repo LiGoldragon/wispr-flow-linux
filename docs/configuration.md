@@ -19,12 +19,10 @@ input-method overrides the claude-desktop reference had.
 
 | Variable | Default | Description |
 |---|---|---|
-| `WISPR_USE_WAYLAND` | unset | Set to `1` to force native Wayland (Ozone): pins `--ozone-platform=wayland`, enables the Wayland IME path, and exports `GDK_BACKEND=wayland`. Without it, Electron 42 auto-detects Wayland/X11. |
 | `WISPR_DISABLE_GPU` | unset | Set to `1` to pass `--disable-gpu --disable-software-rasterizer`. Workaround for blank windows / GPU-process crashes on broken drivers or remote sessions. Also applied automatically inside XRDP sessions. |
 
 ```bash
 # One-off:
-WISPR_USE_WAYLAND=1 wispr-flow
 WISPR_DISABLE_GPU=1 wispr-flow
 
 # Persistent:
@@ -32,10 +30,10 @@ echo 'export WISPR_DISABLE_GPU=1' >> ~/.profile
 ```
 
 > [!NOTE]
-> Unlike the claude-desktop reference, the default does **not** force XWayland.
-> Wispr Flow's keystroke injection uses an in-process `/dev/uinput` virtual
-> keyboard (not X11 XTEST global hotkeys), so native Wayland is the validated
-> default. See [learnings/wayland-injection.md](learnings/wayland-injection.md).
+> The launcher selects one backend declaratively: when `DISPLAY` exists it
+> pins Electron and GTK to X11/XWayland; otherwise, a Wayland-only session gets
+> native Wayland. The X11 preference keeps the Status overlay transparent while
+> retaining native Wayland where no X server is available.
 
 ## Where state lives
 

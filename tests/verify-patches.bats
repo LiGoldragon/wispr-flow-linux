@@ -36,6 +36,7 @@ declare -gA MARKER_SAMPLES=(
 	[chrome]='e.classList.add(/*WISPR_LINUX_WIN32_CHROME*/"linux"===w.electron.platform.os?"win32":w.electron.platform.os);'
 	[windowframe]='"win32"===process.platform||"linux"===process.platform/*WISPR_LINUX_FRAMELESS*/&&Object.assign(t,{titleBarStyle:"hidden"});'
 	[statuswindow]='transparent:!0,backgroundColor:"#00000000"/*WISPR_LINUX_STATUS_ARGB_BACKGROUND*/,hasShadow:!1'
+	[pttshortcut]='shortcuts:(e=>{return{"162+91":"ptt"}})(d)/*WISPR_LINUX_PTT_SHORTCUT*/,stashedScratchpadShortcuts:s'
 	[treataswindows]='const x=((y?.platform?.isWindows??!1)||"linux"===y?.platform?.os)/*WISPR_LINUX_RENDERER_ISWIN*/;'
 	[deeplink]='if(f.H8||"linux"===process.platform){/*WISPR_LINUX_DEEPLINK*/const e=process.argv.find(x=>x.startsWith("wispr-flow:"));}'
 )
@@ -142,6 +143,14 @@ write_fixture() {
 @test "verify: exits 1 when the Status window marker is missing" {
 	local fixture
 	fixture="$(write_fixture statuswindow)"
+	run bash "$VERIFY_SH" "$fixture"
+	[[ "$status" -eq 1 ]]
+	[[ "$output" == *'MISSING'* ]]
+}
+
+@test "verify: exits 1 when the PTT shortcut marker is missing" {
+	local fixture
+	fixture="$(write_fixture pttshortcut)"
 	run bash "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 1 ]]
 	[[ "$output" == *'MISSING'* ]]

@@ -63,6 +63,11 @@ access).
   these codes. So the monitor must translate each physical key with
   `keymap::evdev_to_vk` — the exact inverse of `vk_to_evdev`. A roundtrip test
   pins the two tables together. If they drift, matching silently breaks.
+- **Persisted PTT must be matchable.** A synced macOS profile can store `-1`
+  for its Mac-only PTT key. The Linux package normalizes a shortcut map with no
+  matchable PTT entry to `"162+91":"ptt"` at startup, while leaving any
+  user-selected matchable PTT binding unchanged. The update touches only the
+  shortcut map, never account or session state.
 - **The `index` field is a monotonic sequence.** The app cross-checks each
   event's `index` against its own running counter and warns on a gap. That's why
   the capture path shares one `AtomicU64` across all reader threads.

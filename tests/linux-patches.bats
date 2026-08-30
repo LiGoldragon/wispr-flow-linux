@@ -242,3 +242,32 @@ JS
 	[[ "$status" -ne 0 ]]
 	! grep -q 'WISPR_LINUX_DEEPLINK' "$FIX"
 }
+
+# =============================================================================
+# linux-ptt-shortcut.sh
+# =============================================================================
+
+@test "ptt shortcut: repairs only an absent or Linux-invalid PTT binding" {
+	cat > "$FIX" <<'JS'
+const prefs={user:{shortcuts:JSON.parse(process.argv[2])}};
+const state={RA:{prefs}};
+const updates={xB:update=>{state.RA.prefs.user.shortcuts=update.shortcuts}};
+const d=state.RA.prefs.user.shortcuts,s={};
+(0,updates.xB)({shortcuts:d,stashedScratchpadShortcuts:s});
+process.stdout.write(JSON.stringify(state.RA.prefs.user.shortcuts));
+JS
+	run bash "$PATCH_DIR/linux-ptt-shortcut.sh" "$FIX"
+	[[ $status -eq 0 ]]
+
+	run node "$FIX" '{}'
+	[[ $status -eq 0 ]]
+	[[ $output == '{"162+91":"ptt"}' ]]
+
+	run node "$FIX" '{"-1":"ptt","42":"dismiss"}'
+	[[ $status -eq 0 ]]
+	[[ $output == '{"42":"dismiss","162+91":"ptt"}' ]]
+
+	run node "$FIX" '{"163+91":"ptt","42":"dismiss"}'
+	[[ $status -eq 0 ]]
+	[[ $output == '{"42":"dismiss","163+91":"ptt"}' ]]
+}

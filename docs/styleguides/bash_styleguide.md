@@ -12,7 +12,7 @@ guide; it is the convention the project's scripts already follow (tabs, `[[ ]]`,
 Project-specific notes:
 
 - **Env var prefix is `WISPR_*`** for user-facing overrides (e.g.
-  `WISPR_USE_WAYLAND`, `WISPR_DISABLE_GPU`), not `CLAUDE_*`.
+  `WISPR_DISABLE_GPU`), not `CLAUDE_*`.
 - **Each build-step line prints `[AUTO]` or `[MANUAL]`** so the operator knows
   which steps need network/toolchain. See `scripts/build-linux.sh`.
 - The launcher library (`scripts/launcher-common.sh`) and diagnostics

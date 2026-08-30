@@ -10,7 +10,6 @@
 # report for the kept-vs-dropped rationale.
 #
 # Env var convention: WISPR_* (not CLAUDE_*). Supported overrides:
-#   WISPR_USE_WAYLAND=1   force native Wayland (Electron Ozone)
 #   WISPR_DISABLE_GPU=1   disable GPU / software rasterizer (blank-window
 #                         workaround on broken drivers / remote sessions)
 #
@@ -66,7 +65,6 @@ log_session_env() {
 		WAYLAND_DISPLAY \
 		DISPLAY \
 		XDG_CURRENT_DESKTOP \
-		WISPR_USE_WAYLAND \
 		WISPR_DISABLE_GPU
 	do
 		log_message "  $key=${!key:-}"
@@ -80,19 +78,20 @@ check_display() {
 	[[ -n ${DISPLAY:-} || -n ${WAYLAND_DISPLAY:-} ]]
 }
 
-# Detect display backend (Wayland vs X11).
-# Sets: is_wayland
+# Select the one display backend the application will use.
+# Sets: display_backend = x11 | wayland | none
 #
-# Electron 42 auto-detects Wayland/X11 via Ozone, so unlike the Claude
-# reference we do NOT force XWayland: Wispr Flow's keystroke injection
-# uses an in-process /dev/uinput virtual keyboard (not X11 XTEST global
-# hotkeys), so native Wayland is the validated default. WISPR_USE_WAYLAND
-# is retained as an explicit override that maps to native Ozone Wayland
-# flags in build_electron_args.
+# The Status window is transparent only under X11/XWayland. Prefer the X11
+# socket whenever it exists; use native Wayland only on Wayland-only sessions.
 detect_display_backend() {
-	is_wayland=false
-	[[ -n ${WAYLAND_DISPLAY:-} ]] && is_wayland=true
-	# Return 0 unconditionally: the function's job is to *set* is_wayland,
+	if [[ -n ${DISPLAY:-} ]]; then
+		display_backend='x11'
+	elif [[ -n ${WAYLAND_DISPLAY:-} ]]; then
+		display_backend='wayland'
+	else
+		display_backend='none'
+	fi
+	# Return 0 unconditionally: the function's job is to *set* display_backend,
 	# not to report the backend via exit status. Without this, the trailing
 	# `&&` above leaves $? at 1 on X11/no-Wayland, which would abort any
 	# caller running under `set -e` (or break `detect_display_backend && ...`).
@@ -100,7 +99,7 @@ detect_display_backend() {
 }
 
 # Build the Electron arguments array based on package type and backend.
-# Requires: is_wayland to be set (call detect_display_backend first).
+# Requires: display_backend to be set (call detect_display_backend first).
 # Sets: electron_args array
 # Arguments: $1 = "appimage" | "rpm" | "deb" | "nix" (affects sandbox).
 build_electron_args() {
@@ -141,29 +140,20 @@ build_electron_args() {
 	[[ $_disable_gpu == true ]] \
 		&& electron_args+=('--disable-gpu' '--disable-software-rasterizer')
 
-	# X11 session: let Electron's Ozone default handle it, no extra flags.
-	if [[ $is_wayland != true ]]; then
-		log_message 'X11 session detected'
+	if [[ ${display_backend:-none} == 'x11' ]]; then
+		log_message 'X11/XWayland backend selected (DISPLAY available)'
+		electron_args+=('--ozone-platform=x11')
+		export GDK_BACKEND=x11
 		return
 	fi
 
-	# Wayland session.
-	if [[ ${WISPR_USE_WAYLAND:-} == '1' ]]; then
-		# Explicit native-Wayland opt-in: pin the Ozone Wayland platform
-		# and enable the Wayland IME path.
-		log_message 'WISPR_USE_WAYLAND=1 - native Wayland (Ozone) backend'
+	if [[ ${display_backend:-none} == 'wayland' ]]; then
+		log_message 'Wayland backend selected (DISPLAY unavailable)'
 		electron_args+=('--enable-features=UseOzonePlatform,WaylandWindowDecorations')
 		electron_args+=('--ozone-platform=wayland')
 		electron_args+=('--enable-wayland-ime')
 		electron_args+=('--wayland-text-input-version=3')
-		# Override a system-wide GDK_BACKEND=x11 that would otherwise stop
-		# GTK from connecting to the compositor (blurry/failed HiDPI).
 		export GDK_BACKEND=wayland
-	else
-		# Default: let Electron 42 auto-detect (Ozone picks Wayland when
-		# WAYLAND_DISPLAY is set). The uinput injection path does not
-		# depend on the toolkit backend, so no override is needed.
-		log_message 'Wayland session - Electron Ozone auto-detect'
 	fi
 }
 

@@ -36,7 +36,6 @@ setup() {
 	# Clear display / session vars so host state can't leak into tests.
 	unset DISPLAY
 	unset WAYLAND_DISPLAY
-	unset WISPR_USE_WAYLAND
 	unset WISPR_DISABLE_GPU
 	unset XDG_CURRENT_DESKTOP
 	unset XDG_SESSION_TYPE
@@ -130,7 +129,6 @@ teardown() {
 	WAYLAND_DISPLAY='wayland-0'
 	DISPLAY=':0'
 	XDG_CURRENT_DESKTOP='KDE'
-	WISPR_USE_WAYLAND='1'
 	WISPR_DISABLE_GPU='1'
 	log_session_env
 
@@ -141,9 +139,8 @@ teardown() {
 	[[ "${lines[2]}" == '  WAYLAND_DISPLAY=wayland-0' ]]
 	[[ "${lines[3]}" == '  DISPLAY=:0' ]]
 	[[ "${lines[4]}" == '  XDG_CURRENT_DESKTOP=KDE' ]]
-	[[ "${lines[5]}" == '  WISPR_USE_WAYLAND=1' ]]
-	[[ "${lines[6]}" == '  WISPR_DISABLE_GPU=1' ]]
-	[[ "${lines[7]}" == '}' ]]
+	[[ "${lines[5]}" == '  WISPR_DISABLE_GPU=1' ]]
+	[[ "${lines[6]}" == '}' ]]
 }
 
 @test "log_session_env: unset values render as 'KEY=' (no value)" {
@@ -157,8 +154,7 @@ teardown() {
 	[[ "${lines[2]}" == '  WAYLAND_DISPLAY=' ]]
 	[[ "${lines[3]}" == '  DISPLAY=' ]]
 	[[ "${lines[4]}" == '  XDG_CURRENT_DESKTOP=' ]]
-	[[ "${lines[5]}" == '  WISPR_USE_WAYLAND=' ]]
-	[[ "${lines[6]}" == '  WISPR_DISABLE_GPU=' ]]
+	[[ "${lines[5]}" == '  WISPR_DISABLE_GPU=' ]]
 }
 
 # =============================================================================
@@ -195,28 +191,28 @@ teardown() {
 # detect_display_backend
 # =============================================================================
 
-@test "detect_display_backend: X11 session sets is_wayland=false" {
+@test "detect_display_backend: X11 session selects x11" {
 	DISPLAY=":0"
 	detect_display_backend
-	[[ $is_wayland == false ]]
+	[[ $display_backend == x11 ]]
 }
 
-@test "detect_display_backend: Wayland session sets is_wayland=true" {
+@test "detect_display_backend: Wayland-only session selects wayland" {
 	WAYLAND_DISPLAY="wayland-0"
 	detect_display_backend
-	[[ $is_wayland == true ]]
+	[[ $display_backend == wayland ]]
 }
 
-@test "detect_display_backend: no display vars defaults to is_wayland=false" {
+@test "detect_display_backend: no display vars selects none" {
 	detect_display_backend
-	[[ $is_wayland == false ]]
+	[[ $display_backend == none ]]
 }
 
-@test "detect_display_backend: WAYLAND_DISPLAY wins even with DISPLAY also set" {
+@test "detect_display_backend: DISPLAY wins when XWayland is available" {
 	DISPLAY=":0"
 	WAYLAND_DISPLAY="wayland-0"
 	detect_display_backend
-	[[ $is_wayland == true ]]
+	[[ $display_backend == x11 ]]
 }
 
 # =============================================================================
@@ -224,21 +220,21 @@ teardown() {
 # =============================================================================
 
 @test "build_electron_args: includes --class=Wispr Flow" {
-	is_wayland=false
+	display_backend=x11
 	setup_logging
 	build_electron_args rpm
 	has_electron_arg '--class=Wispr Flow'
 }
 
 @test "build_electron_args: appimage adds --no-sandbox" {
-	is_wayland=false
+	display_backend=x11
 	setup_logging
 	build_electron_args appimage
 	has_electron_arg '--no-sandbox'
 }
 
 @test "build_electron_args: rpm does NOT add --no-sandbox" {
-	is_wayland=false
+	display_backend=x11
 	setup_logging
 	build_electron_args rpm
 	# shellcheck disable=SC2314 # last command in test, ! works correctly
@@ -246,7 +242,7 @@ teardown() {
 }
 
 @test "build_electron_args: deb does NOT add --no-sandbox" {
-	is_wayland=false
+	display_backend=x11
 	setup_logging
 	build_electron_args deb
 	# shellcheck disable=SC2314
@@ -254,7 +250,7 @@ teardown() {
 }
 
 @test "build_electron_args: WISPR_DISABLE_GPU=1 adds --disable-gpu" {
-	is_wayland=false
+	display_backend=x11
 	WISPR_DISABLE_GPU=1
 	setup_logging
 	build_electron_args rpm
@@ -263,58 +259,42 @@ teardown() {
 }
 
 @test "build_electron_args: no GPU flags without WISPR_DISABLE_GPU" {
-	is_wayland=false
+	display_backend=x11
 	setup_logging
 	build_electron_args rpm
 	# shellcheck disable=SC2314
 	! has_electron_arg '--disable-gpu'
 }
 
-@test "build_electron_args: X11 session adds no Wayland flags" {
-	is_wayland=false
+@test "build_electron_args: X11 session pins the X11 backend" {
+	display_backend=x11
 	setup_logging
 	build_electron_args deb
-	# shellcheck disable=SC2314
+	has_electron_arg '--ozone-platform=x11'
 	! has_electron_arg '--ozone-platform=wayland'
+	[[ $GDK_BACKEND == 'x11' ]]
 }
 
-@test "build_electron_args: Wayland default (auto-detect) adds no native flags" {
-	# Default Wayland path: Electron Ozone auto-detect, no forced platform.
-	is_wayland=true
-	setup_logging
-	build_electron_args deb
-	# shellcheck disable=SC2314
-	! has_electron_arg '--ozone-platform=wayland'
-}
-
-@test "build_electron_args: WISPR_USE_WAYLAND=1 adds native Wayland flags" {
-	is_wayland=true
-	WISPR_USE_WAYLAND=1
+@test "build_electron_args: Wayland-only session pins the Wayland backend" {
+	display_backend=wayland
 	setup_logging
 	build_electron_args deb
 	has_electron_arg '--ozone-platform=wayland'
-	has_electron_arg '--enable-wayland-ime'
-	has_electron_arg '--wayland-text-input-version=3'
-	has_electron_arg '*WaylandWindowDecorations*'
-}
-
-@test "build_electron_args: WISPR_USE_WAYLAND=1 exports GDK_BACKEND=wayland" {
-	is_wayland=true
-	WISPR_USE_WAYLAND=1
-	setup_logging
-	build_electron_args deb
 	[[ $GDK_BACKEND == 'wayland' ]]
 }
 
-@test "build_electron_args: WISPR_USE_WAYLAND ignored on X11 (is_wayland=false)" {
-	# The native-Wayland flags only apply on an actual Wayland session.
-	is_wayland=false
-	WISPR_USE_WAYLAND=1
+@test "build_electron_args: DISPLAY wins over WAYLAND_DISPLAY with one explicit X11 backend" {
+	DISPLAY=':0'
+	WAYLAND_DISPLAY='wayland-0'
 	setup_logging
+	detect_display_backend
 	build_electron_args deb
-	# shellcheck disable=SC2314
+	[[ ${display_backend:-} == 'x11' ]]
+	has_electron_arg '--ozone-platform=x11'
+	[[ ${GDK_BACKEND:-} == 'x11' ]]
 	! has_electron_arg '--ozone-platform=wayland'
 }
+
 
 # =============================================================================
 # setup_electron_env

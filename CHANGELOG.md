@@ -10,6 +10,12 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Fixed
 
+- Linux now normalizes an absent or Mac-only persisted push-to-talk binding to
+  the live Ctrl+Meta matcher chord (`162+91`) without replacing a valid
+  user-selected binding.
+- The launcher now selects X11/XWayland whenever `DISPLAY` is available,
+  keeping the Status overlay transparent; native Wayland remains for
+  Wayland-only sessions.
 - Native-Wayland Status overlays now carry the same explicit transparent ARGB
   background colour as the other transparent BrowserWindows, preventing the
   opaque/tiled Chromium fallback before the Status renderer paints. The

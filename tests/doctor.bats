@@ -25,7 +25,6 @@ setup() {
 	unset WAYLAND_DISPLAY
 	unset XDG_SESSION_TYPE
 	unset XDG_CURRENT_DESKTOP
-	unset WISPR_USE_WAYLAND
 
 	# shellcheck source=scripts/doctor.sh
 	source "$SCRIPT_DIR/../scripts/doctor.sh"
@@ -152,11 +151,11 @@ command() {
 	[[ $_doctor_failures -eq 0 ]]
 }
 
-@test "_doctor_check_display: notes native Wayland mode when WISPR_USE_WAYLAND=1" {
+@test "_doctor_check_display: reports X11 selection when both endpoints exist" {
+	DISPLAY=':0'
 	WAYLAND_DISPLAY='wayland-0'
-	WISPR_USE_WAYLAND='1'
 	run _doctor_check_display
-	[[ $output == *"native Wayland forced"* ]]
+	[[ $output == *"X11/XWayland selected"* ]]
 }
 
 # =============================================================================

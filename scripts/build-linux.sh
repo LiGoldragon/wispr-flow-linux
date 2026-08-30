@@ -278,6 +278,11 @@ step3_patch_bundle() {
     auto "Running linux-status-window.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-status-window.sh" "$target_bundle" \
       || warn "Status-window patch failed -- see linux-status-window.sh output above."
+    # A synced macOS profile can contain an unmappable -1 PTT key. Normalize
+    # only that unusable shortcut state to the Linux Ctrl+Meta matcher chord.
+    auto "Running linux-ptt-shortcut.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-ptt-shortcut.sh" "$target_bundle" \
+      || warn "PTT-shortcut patch failed -- see linux-ptt-shortcut.sh output above."
     # Parse the wispr-flow: deep-link URL out of argv at cold start on Linux too
     # (the parse was win32-only; the warm-start second-instance path already works).
     auto "Running linux-deeplink.sh on $target_bundle"

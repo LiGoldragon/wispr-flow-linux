@@ -99,8 +99,8 @@ Don't delete superseded decisions — mark them and link forward.
 3. **Domain nouns.** This is a packaging + helper project — use `the helper`,
    `the launcher`, `app.asar`, `the main bundle`, `uinput`, `the KWin bridge`,
    `the resolver patch`. Don't use `foo`/`bar` in end-to-end recipes.
-4. **Defaults first, then the override.** "Electron auto-detects Wayland. To
-   force it, set `WISPR_USE_WAYLAND=1`."
+4. **Defaults first, then the exception.** "The launcher selects X11 when
+   `DISPLAY` is available and Wayland only when it is not."
 5. **Warnings in alert blocks**, not paragraphs: `> [!NOTE]`, `> [!WARNING]`,
    `> [!IMPORTANT]`. GitHub renders them.
 6. **Source-file blocks on deep-dives.** Bulleted links to the actual source
