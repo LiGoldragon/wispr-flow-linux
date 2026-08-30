@@ -1,9 +1,10 @@
 #!/usr/bin/env bats
 #
 # linux-patches.bats
-# Unit tests for the four renderer/main bundle patches added for the Linux port:
+# Unit tests for the Linux renderer/main bundle patches:
 #   * linux-renderer-chrome.sh           -> remaps the <html> platform class linux->win32
 #   * linux-window-frame.sh              -> frameless hub/settings window on Linux
+#   * linux-status-window.sh             -> ARGB background for the Status overlay
 #   * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows bind
 #                                           (bridge stays honest; no preload touched)
 #   * linux-deeplink.sh                  -> cold-start wispr-flow: argv parse on Linux
@@ -125,6 +126,45 @@ JS
 	run bash "$PATCH_DIR/linux-window-frame.sh" "$FIX"
 	[[ "$status" -ne 0 ]]
 	! grep -q 'WISPR_LINUX_FRAMELESS' "$FIX"
+}
+
+# =============================================================================
+# linux-status-window.sh
+# =============================================================================
+
+@test "status-window: gives the transparent Status BrowserWindow an ARGB background" {
+	# The Status BrowserWindow in Wispr Flow 1.6.7 is the one transparent
+	# overlay that omits backgroundColor. On native Wayland Electron can then
+	# expose Chromium's opaque/tiled fallback instead of compositing the overlay.
+	# The status preload literal makes this a Status-only anchor: other transparent
+	# BrowserWindows must keep their existing options unchanged.
+	cat > "$FIX" <<'JS'
+const n=new BrowserWindow({...t,show:!1,webPreferences:{...p,preload:require("path").resolve(__dirname,"../renderer","status","preload.js"),backgroundThrottling:!1},transparent:!0,hasShadow:!1,roundedCorners:!1,type:r.tD?"panel":"toolbar",title:"Flow Status Indicator",fullscreen:!1,frame:!1,alwaysOnTop:!0});
+const other=new BrowserWindow({transparent:!0,hasShadow:!1,title:"Unrelated Overlay"});
+JS
+	run bash "$PATCH_DIR/linux-status-window.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -q 'WISPR_LINUX_STATUS_ARGB_BACKGROUND' "$FIX"
+	grep -qF 'transparent:!0,backgroundColor:"#00000000"/*WISPR_LINUX_STATUS_ARGB_BACKGROUND*/,hasShadow:!1' "$FIX"
+	grep -qF 'transparent:!0,hasShadow:!1,title:"Unrelated Overlay"' "$FIX"
+	node_check "$FIX"
+}
+
+@test "status-window: is idempotent on second run" {
+	cat > "$FIX" <<'JS'
+const n=new BrowserWindow({webPreferences:{preload:require("path").resolve(__dirname,"../renderer","status","preload.js"),backgroundThrottling:!1},transparent:!0,hasShadow:!1,roundedCorners:!1,type:r.tD?"panel":"toolbar",title:"Flow Status Indicator"});
+JS
+	bash "$PATCH_DIR/linux-status-window.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-status-window.sh" "$FIX"
+}
+
+@test "status-window: bails non-zero when the Status BrowserWindow anchor is absent" {
+	cat > "$FIX" <<'JS'
+const n=new BrowserWindow({webPreferences:{preload:require("path").resolve(__dirname,"../renderer","overlay","preload.js")},transparent:!0,hasShadow:!1,title:"Unrelated Overlay"});
+JS
+	run bash "$PATCH_DIR/linux-status-window.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_STATUS_ARGB_BACKGROUND' "$FIX"
 }
 
 # =============================================================================

@@ -10,6 +10,11 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Fixed
 
+- Native-Wayland Status overlays now carry the same explicit transparent ARGB
+  background colour as the other transparent BrowserWindows, preventing the
+  opaque/tiled Chromium fallback before the Status renderer paints. The
+  Status-only bundle patch is marker-verified in the shipped `app.asar` and its
+  hermetic behavioural tests run as a Nix check.
 - The Nix flake now stages the same complete Linux runtime as the packaging
   pipeline: the pinned clean-room helper, ABI-146 Linux SQLite addons, and all
   required main/renderer Linux patches. It preserves nixpkgs' Electron runtime

@@ -272,6 +272,12 @@ step3_patch_bundle() {
     auto "Running linux-window-frame.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-window-frame.sh" "$target_bundle" \
       || warn "Window-frame patch failed -- see linux-window-frame.sh output above."
+    # The transparent Status BrowserWindow needs an explicit ARGB background.
+    # Without it, native Wayland Electron can expose an opaque/tiled fallback
+    # before its status renderer paints.
+    auto "Running linux-status-window.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-status-window.sh" "$target_bundle" \
+      || warn "Status-window patch failed -- see linux-status-window.sh output above."
     # Parse the wispr-flow: deep-link URL out of argv at cold start on Linux too
     # (the parse was win32-only; the warm-start second-instance path already works).
     auto "Running linux-deeplink.sh on $target_bundle"

@@ -150,6 +150,7 @@ backup, `node --check`s the result, and is idempotent (re-run = byte-identical).
 |---|---|---|
 | Menu offset + invisible window controls (remap `<html>` class linux→win32) | [`linux-renderer-chrome.sh`](../../scripts/patches/linux-renderer-chrome.sh) | `WISPR_LINUX_WIN32_CHROME` |
 | Chrome window fell to default framed + visible menu bar → make it frameless like win32 (1.5.695: the meeting_recorder window; the Hub/scratchpad windows now self-frame Linux via a two-way else branch) | [`linux-window-frame.sh`](../../scripts/patches/linux-window-frame.sh) | `WISPR_LINUX_FRAMELESS` |
+| Status overlay began opaque/tiled on native Wayland because its transparent `BrowserWindow` omitted the ARGB clear colour used by the other overlays → set `backgroundColor:"#00000000"` at the Status-only config | [`linux-status-window.sh`](../../scripts/patches/linux-status-window.sh) | `WISPR_LINUX_STATUS_ARGB_BACKGROUND` |
 | Fresh installs seeded macOS `fn`/⌘ shortcut defaults + skipped the onboarding Permissions step → widen each renderer's `isWindows` **bind** to also be true on linux (bridge stays honest) | [`linux-renderer-treat-as-windows.sh`](../../scripts/patches/linux-renderer-treat-as-windows.sh) | `WISPR_LINUX_RENDERER_ISWIN` |
 | Cold-start `wispr-flow:` deep links dropped (parse was win32-only) → widen the argv-parse guard | [`linux-deeplink.sh`](../../scripts/patches/linux-deeplink.sh) | `WISPR_LINUX_DEEPLINK` |
 

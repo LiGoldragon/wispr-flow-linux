@@ -192,6 +192,7 @@ stdenvNoCC.mkDerivation {
     bash ${sourceRoot}/scripts/patches/helper-env.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/mac-gates.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/linux-window-frame.sh "$main_bundle"
+    bash ${sourceRoot}/scripts/patches/linux-status-window.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/linux-deeplink.sh "$main_bundle"
 
     webpack_root="${"$"}{main_bundle%/main/index.js}"

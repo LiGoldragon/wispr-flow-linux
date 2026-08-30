@@ -53,6 +53,7 @@
           runtimeInputs = pkgs.callPackage ./nix/runtime-inputs.nix { };
         in
         {
+          wispr-flow-linux-patches = pkgs.callPackage ./nix/patches-check.nix { };
           wispr-flow-runtime = pkgs.callPackage ./nix/runtime-check.nix {
             inherit runtimeInputs;
           };
