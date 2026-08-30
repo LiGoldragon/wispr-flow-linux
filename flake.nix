@@ -57,6 +57,9 @@
           wispr-flow-runtime = pkgs.callPackage ./nix/runtime-check.nix {
             inherit runtimeInputs;
           };
+          wispr-flow-helper-keypress = pkgs.callPackage ./nix/helper-keypress-check.nix {
+            inherit runtimeInputs;
+          };
         }
       );
 
