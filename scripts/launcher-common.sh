@@ -81,13 +81,13 @@ check_display() {
 # Select the one display backend the application will use.
 # Sets: display_backend = x11 | wayland | none
 #
-# The Status window is transparent only under X11/XWayland. Prefer the X11
-# socket whenever it exists; use native Wayland only on Wayland-only sessions.
+# Native Wayland is the ordinary backend when the compositor socket exists.
+# The helper's evdev capture and uinput injection do not depend on XWayland.
 detect_display_backend() {
-	if [[ -n ${DISPLAY:-} ]]; then
-		display_backend='x11'
-	elif [[ -n ${WAYLAND_DISPLAY:-} ]]; then
+	if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
 		display_backend='wayland'
+	elif [[ -n ${DISPLAY:-} ]]; then
+		display_backend='x11'
 	else
 		display_backend='none'
 	fi
@@ -148,7 +148,7 @@ build_electron_args() {
 	fi
 
 	if [[ ${display_backend:-none} == 'wayland' ]]; then
-		log_message 'Wayland backend selected (DISPLAY unavailable)'
+		log_message 'Wayland backend selected (WAYLAND_DISPLAY available)'
 		electron_args+=('--enable-features=UseOzonePlatform,WaylandWindowDecorations')
 		electron_args+=('--ozone-platform=wayland')
 		electron_args+=('--enable-wayland-ime')

@@ -208,11 +208,11 @@ teardown() {
 	[[ $display_backend == none ]]
 }
 
-@test "detect_display_backend: DISPLAY wins when XWayland is available" {
+@test "detect_display_backend: WAYLAND_DISPLAY wins when XWayland is available" {
 	DISPLAY=":0"
 	WAYLAND_DISPLAY="wayland-0"
 	detect_display_backend
-	[[ $display_backend == x11 ]]
+	[[ $display_backend == wayland ]]
 }
 
 # =============================================================================
@@ -283,16 +283,16 @@ teardown() {
 	[[ $GDK_BACKEND == 'wayland' ]]
 }
 
-@test "build_electron_args: DISPLAY wins over WAYLAND_DISPLAY with one explicit X11 backend" {
+@test "build_electron_args: WAYLAND_DISPLAY selects the native backend with XWayland available" {
 	DISPLAY=':0'
 	WAYLAND_DISPLAY='wayland-0'
 	setup_logging
 	detect_display_backend
 	build_electron_args deb
-	[[ ${display_backend:-} == 'x11' ]]
-	has_electron_arg '--ozone-platform=x11'
-	[[ ${GDK_BACKEND:-} == 'x11' ]]
-	! has_electron_arg '--ozone-platform=wayland'
+	[[ ${display_backend:-} == 'wayland' ]]
+	has_electron_arg '--ozone-platform=wayland'
+	[[ ${GDK_BACKEND:-} == 'wayland' ]]
+	! has_electron_arg '--ozone-platform=x11'
 }
 
 
