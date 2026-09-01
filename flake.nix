@@ -46,6 +46,7 @@
               nativeBuildInputs = [
                 pkgs.bats
                 pkgs.nodejs
+                pkgs.python3
               ];
             }
             ''
