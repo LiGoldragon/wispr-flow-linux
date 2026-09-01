@@ -40,8 +40,15 @@
       checks = forEachSystem (system:
         let
           pkgs = pkgsFor system;
+          runtimeInputs = pkgs.callPackage ./nix/runtime-inputs.nix { };
+          wispr-flow = pkgs.callPackage ./nix/wispr-flow.nix { inherit runtimeInputs; };
         in
         {
+          # A real derivation of the packaged archive.  Run with
+          # WISPR_FLOW_EXE=... and --impure; it executes the same extract,
+          # patch, repack, and final-archive verification path as deployment.
+          package-artifact = wispr-flow;
+
           runtime-input-contract =
             let
               runtimeInputs = pkgs.callPackage ./nix/runtime-inputs.nix { };

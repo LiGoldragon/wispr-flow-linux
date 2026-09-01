@@ -157,10 +157,32 @@ stdenvNoCC.mkDerivation {
     main_bundle=asar-contents/.webpack/main/index.js
     [[ -f "$main_bundle" ]] || { echo "main bundle not found at $main_bundle" >&2; exit 1; }
 
-    # Add the 'linux' helper-path branch + gate the macOS Applications guard.
+    # Apply the complete, fail-closed Linux patch suite to the source bundles.
+    # The final archive verifier below is intentionally kept in lockstep with
+    # this list: each required marker must be produced before packaging.
     bash ${sourceRoot}/scripts/patches/helper-resolver.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/mac-gates.sh "$main_bundle"
+    bash ${sourceRoot}/scripts/patches/helper-env.sh "$main_bundle"
+    bash ${sourceRoot}/scripts/patches/linux-window-frame.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/linux-hub-viewport.sh "$main_bundle"
+    bash ${sourceRoot}/scripts/patches/linux-deeplink.sh "$main_bundle"
+
+    webpack_root=asar-contents/.webpack
+    hub_renderer="$webpack_root/renderer/hub/index.js"
+    [[ -f "$hub_renderer" ]] || { echo "hub renderer not found at $hub_renderer" >&2; exit 1; }
+    bash ${sourceRoot}/scripts/patches/linux-renderer-chrome.sh "$hub_renderer"
+
+    renderer_count=0
+    for renderer in "$webpack_root"/renderer/*/index.js; do
+      [[ -f "$renderer" ]] || continue
+      grep -qF 'platform?.isWindows' "$renderer" || continue
+      bash ${sourceRoot}/scripts/patches/linux-renderer-treat-as-windows.sh "$renderer"
+      renderer_count=$((renderer_count + 1))
+    done
+    [[ "$renderer_count" -gt 0 ]] || {
+      echo "no renderer isWindows bind found under $webpack_root/renderer" >&2
+      exit 1
+    }
 
     # Replace both copies of the Windows native modules before repacking.
     if [[ -d "$resources_src/app.asar.unpacked" ]]; then
