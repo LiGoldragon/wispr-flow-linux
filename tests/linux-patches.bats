@@ -51,6 +51,40 @@ assert_idempotent() {
 	[[ "$before" == "$after" ]]
 }
 
+write_hub_viewport_fixture() {
+	cat > "$FIX" <<'JS'
+const workArea = { x: 0, y: 0, width: 1280, height: 720 };
+class BrowserWindow {
+  constructor(config) {
+    this.bounds = { x: 0, y: 0, width: config.width, height: config.height };
+    this.webContents = {
+      once: (_event, callback) => callback(),
+      insertCSS: css => {
+        this.css = css;
+        return { catch: () => {} };
+      },
+    };
+  }
+  getBounds() { return this.bounds; }
+  setBounds(bounds) { this.bounds = bounds; }
+  setMinimumSize(width, height) { this.minimumSize = { width, height }; }
+}
+const i = {
+  BrowserWindow,
+  screen: { getDisplayMatching: () => ({ workArea }) },
+};
+const o = { Rj: () => ({ width: 1210, height: 750 }) };
+const _ = { PF: {}, tD: false, eh: { width: 1140, height: 750 } };
+const se=()=>{const e=(0,o.Rj)(_.PF),t={title:"Flow Hub",width:e.width,height:e.height,center:!0,resizable:!0};const n=new i.BrowserWindow(t);n.setMinimumSize(_.eh.width,_.eh.height);return n};
+const hub = se();
+const safe = hub.getBounds().height <= workArea.height
+  && hub.minimumSize.height <= workArea.height
+  && hub.css.includes('[data-testid="onboarding-cta"]')
+  && hub.css.includes('position:sticky!important');
+if (!safe) process.exit(1);
+JS
+}
+
 # =============================================================================
 # linux-renderer-chrome.sh
 # =============================================================================
@@ -125,6 +159,39 @@ JS
 	run bash "$PATCH_DIR/linux-window-frame.sh" "$FIX"
 	[[ "$status" -ne 0 ]]
 	! grep -q 'WISPR_LINUX_FRAMELESS' "$FIX"
+}
+
+# =============================================================================
+# linux-hub-viewport.sh
+# =============================================================================
+
+@test "hub-viewport: bounds Flow Hub and keeps onboarding Continue available" {
+	write_hub_viewport_fixture
+	run bash "$PATCH_DIR/linux-hub-viewport.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -q 'WISPR_LINUX_HUB_VIEWPORT' "$FIX"
+	grep -qF 'Math.min(_.eh.height,e.height)' "$FIX"
+	grep -qF 'position:sticky!important' "$FIX"
+	node_check "$FIX"
+	run node "$FIX"
+	[[ "$status" -eq 0 ]]
+}
+
+@test "hub-viewport: idempotent on second run" {
+	write_hub_viewport_fixture
+	bash "$PATCH_DIR/linux-hub-viewport.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-hub-viewport.sh" "$FIX"
+}
+
+@test "hub-viewport: bails non-zero when Flow Hub sizing anchor is absent" {
+	cat > "$FIX" <<'JS'
+const t = { title: "Another Window", width: 1210, height: 750 };
+const n = new BrowserWindow(t);
+n.setMinimumSize(1140, 750);
+JS
+	run bash "$PATCH_DIR/linux-hub-viewport.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_HUB_VIEWPORT' "$FIX"
 }
 
 # =============================================================================

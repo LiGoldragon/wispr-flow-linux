@@ -36,6 +36,26 @@
           default = wispr-flow-fhs;
         });
 
+      checks = forEachSystem (system:
+        let
+          pkgs = pkgsFor system;
+        in
+        {
+          linux-patches = pkgs.runCommand "wispr-flow-linux-patches"
+            {
+              nativeBuildInputs = [
+                pkgs.bats
+                pkgs.nodejs
+              ];
+            }
+            ''
+              bats --print-output-on-failure \
+                ${./tests/linux-patches.bats} \
+                ${./tests/verify-patches.bats}
+              touch "$out"
+            '';
+        });
+
       # Overlay so the packages can be consumed from another flake's nixpkgs.
       overlays.default = final: prev: let
         wispr-flow = final.callPackage ./nix/wispr-flow.nix { };

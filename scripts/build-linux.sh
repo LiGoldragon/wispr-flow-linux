@@ -272,6 +272,11 @@ step3_patch_bundle() {
     auto "Running linux-window-frame.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-window-frame.sh" "$target_bundle" \
       || warn "Window-frame patch failed -- see linux-window-frame.sh output above."
+    # The Hub restores a 1210x750 size and enforces a 1140x750 minimum.  On a
+    # smaller work area that can leave setup's Continue control unreachable.
+    auto "Running linux-hub-viewport.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-hub-viewport.sh" "$target_bundle" \
+      || warn "Hub viewport patch failed -- see linux-hub-viewport.sh output above."
     # Parse the wispr-flow: deep-link URL out of argv at cold start on Linux too
     # (the parse was win32-only; the warm-start second-instance path already works).
     auto "Running linux-deeplink.sh on $target_bundle"

@@ -46,6 +46,7 @@ MARKERS=(
   "mac-gates: darwin gate before getAppPath|P|if\\(\"darwin\"!==process\\.platform\\)return!1;const[ ]*[\\w\$]+=[\\w\$]+\\.app\\.getAppPath"
   "renderer-chrome: linux->win32 platform-class remap|F|WISPR_LINUX_WIN32_CHROME"
   "window-frame: linux frameless window branch|F|WISPR_LINUX_FRAMELESS"
+  "hub-viewport: Flow Hub work-area and onboarding safety|F|WISPR_LINUX_HUB_VIEWPORT"
   "treat-as-windows: linux widens renderer isWindows bind|F|WISPR_LINUX_RENDERER_ISWIN"
   "deeplink: linux cold-start argv parse|F|WISPR_LINUX_DEEPLINK"
 )

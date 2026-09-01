@@ -35,6 +35,7 @@ declare -gA MARKER_SAMPLES=(
 	[helperenv]='stdio:["pipe","pipe","pipe","pipe"],env:{/*WISPR_LINUX_HELPER_ENV*/...process.env,sentryDSN:x}'
 	[chrome]='e.classList.add(/*WISPR_LINUX_WIN32_CHROME*/"linux"===w.electron.platform.os?"win32":w.electron.platform.os);'
 	[windowframe]='"win32"===process.platform||"linux"===process.platform/*WISPR_LINUX_FRAMELESS*/&&Object.assign(t,{titleBarStyle:"hidden"});'
+	[hubviewport]='"linux"===process.platform?(()=>{/*WISPR_LINUX_HUB_VIEWPORT*/})():n.setMinimumSize(_.eh.width,_.eh.height);'
 	[treataswindows]='const x=((y?.platform?.isWindows??!1)||"linux"===y?.platform?.os)/*WISPR_LINUX_RENDERER_ISWIN*/;'
 	[deeplink]='if(f.H8||"linux"===process.platform){/*WISPR_LINUX_DEEPLINK*/const e=process.argv.find(x=>x.startsWith("wispr-flow:"));}'
 )
@@ -133,6 +134,14 @@ write_fixture() {
 @test "verify: exits 1 when the window-frame marker is missing" {
 	local fixture
 	fixture="$(write_fixture windowframe)"
+	run "$VERIFY_SH" "$fixture"
+	[[ "$status" -eq 1 ]]
+	[[ "$output" == *'MISSING'* ]]
+}
+
+@test "verify: exits 1 when the Hub viewport marker is missing" {
+	local fixture
+	fixture="$(write_fixture hubviewport)"
 	run "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 1 ]]
 	[[ "$output" == *'MISSING'* ]]
