@@ -91,12 +91,16 @@ modifier `flags` arrive as names (`"Control"/"Shift"/"Alt"`), and non-mac uses
 ## Held-modifier snapshot/release
 
 Right before a chord, the helper sweeps every readable `/dev/input/event*` with
-`EVIOCGKEY`, releases any modifier the user is physically holding, runs the
-chord, then restores it afterward — that way a Shift you happen to be leaning on
-doesn't corrupt the injected keys. When `/dev/input` isn't readable (no `input`
-group / uaccess ACL) it's just a no-op, degrading cleanly. One honest caveat:
-clearing a modifier held on *another* device through the virtual device leans on
-the compositor's shared seat xkb-state, so it's compositor-dependent.
+`EVIOCGKEY` and emits synthetic releases for modifiers the user is physically
+holding so they cannot corrupt the injected key. It never recreates those
+physical presses on the helper's virtual device: that transfers modifier
+ownership to a device which cannot receive the later physical release and can
+leave the modifier held indefinitely. Every synthetic chord modifier is also
+released during error cleanup. When `/dev/input` isn't readable (no `input`
+group / uaccess ACL) the physical snapshot is empty and the chord degrades
+cleanly. One honest caveat: clearing a modifier held on *another* device through
+the virtual device leans on the compositor's shared seat xkb-state, so it's
+compositor-dependent.
 
 ## Clipboard via ext-data-control (paste path)
 
