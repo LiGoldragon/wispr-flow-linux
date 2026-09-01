@@ -26,7 +26,8 @@
       packages = forEachSystem (system:
         let
           pkgs = pkgsFor system;
-          wispr-flow = pkgs.callPackage ./nix/wispr-flow.nix { };
+          runtimeInputs = pkgs.callPackage ./nix/runtime-inputs.nix { };
+          wispr-flow = pkgs.callPackage ./nix/wispr-flow.nix { inherit runtimeInputs; };
           wispr-flow-fhs = pkgs.callPackage ./nix/fhs.nix { inherit wispr-flow; };
         in
         {
@@ -41,6 +42,17 @@
           pkgs = pkgsFor system;
         in
         {
+          runtime-input-contract =
+            let
+              runtimeInputs = pkgs.callPackage ./nix/runtime-inputs.nix { };
+              wispr-flow = pkgs.callPackage ./nix/wispr-flow.nix { inherit runtimeInputs; };
+            in
+            assert builtins.hasAttr "runtimeInputs" (builtins.functionArgs (import ./nix/wispr-flow.nix));
+            assert wispr-flow.drvPath != "";
+            pkgs.runCommand "wispr-flow-runtime-input-contract" { } ''
+              touch "$out"
+            '';
+
           linux-patches = pkgs.runCommand "wispr-flow-linux-patches"
             {
               nativeBuildInputs = [
@@ -59,7 +71,8 @@
 
       # Overlay so the packages can be consumed from another flake's nixpkgs.
       overlays.default = final: prev: let
-        wispr-flow = final.callPackage ./nix/wispr-flow.nix { };
+        runtimeInputs = final.callPackage ./nix/runtime-inputs.nix { };
+        wispr-flow = final.callPackage ./nix/wispr-flow.nix { inherit runtimeInputs; };
       in {
         inherit wispr-flow;
         wispr-flow-fhs = final.callPackage ./nix/fhs.nix { inherit wispr-flow; };

@@ -1,8 +1,7 @@
 {
   lib,
   stdenvNoCC,
-  rustPlatform,
-  fetchFromGitHub,
+  runtimeInputs,
   electron_42,
   p7zip,
   icoutils,
@@ -75,49 +74,6 @@ let
       && !(lib.hasPrefix "result" rel);
   };
 
-  #============================================================================
-  # The clean-room Linux helper, built from its own repo
-  # (github.com/wispr-flow-linux/helper) via Cargo.
-  #
-  # The crate has a committed Cargo.lock, so cargoLock.lockFile gives a fully
-  # reproducible, vendored build off the fetched source. Produces
-  # `wispr-flow-linux-helper`, which the install phase stages at
-  # resources/Release/wispr-flow-linux-helper (mode 0755) where the patched
-  # main bundle's 'linux' branch looks for it.
-  #============================================================================
-  # NOTE: nix is unavailable in the environment this was wired up in, so the
-  # real fixed-output (FOD) hash for the GitHub fetch cannot be computed here.
-  # The first `nix build` WILL FAIL and print the correct `hash = ...`; paste
-  # that value over lib.fakeHash below.
-  helperSrc = fetchFromGitHub {
-    owner = "wispr-flow-linux";
-    repo = "helper";
-    rev = "v0.1.0";
-    hash = lib.fakeHash;
-  };
-
-  linux-helper = rustPlatform.buildRustPackage {
-    pname = "wispr-flow-linux-helper";
-    version = "0.1.0";
-
-    src = helperSrc;
-
-    cargoLock.lockFile = "${helperSrc}/Cargo.lock";
-
-    # The crate speaks XCB/Wayland/uinput wire protocols directly (pure-Rust:
-    # x11rb, wayland-client, zbus, libc) — no C library dev headers needed, so
-    # no buildInputs. The Python helper scripts in the crate dir are test
-    # tooling, not part of the cargo build.
-    doCheck = false;
-
-    meta = with lib; {
-      description = "Clean-room Linux helper for Wispr Flow (X11/Wayland text injection, window + selection)";
-      license = with licenses; [ mit asl20 ];
-      platforms = platforms.linux;
-      mainProgram = "wispr-flow-linux-helper";
-    };
-  };
-
   # The unwrapped electron derivation holds the real ELF + Chromium resources
   # (.pak files, locales/, etc.). We copy the ELF into our own tree so that
   # /proc/self/exe — and therefore process.resourcesPath — resolves to a dir
@@ -169,14 +125,9 @@ stdenvNoCC.mkDerivation {
   # because its build.sh stages everything inline; ours doesn't, so calling the
   # staging scripts' deterministic parts directly is the cleaner path.
   #
-  # NATIVE-MODULE NOTE: the shipped better-sqlite3-multiple-ciphers + sqlite3
-  # *.node are Windows PE binaries and must be rebuilt for the Linux Electron 42
-  # ABI (see scripts/build-linux.sh step 4 and the V8 14.8 patch under
-  # scripts/patches/). That rebuild needs npm deps + a toolchain and is not
-  # hermetic here, so it is NOT performed in this derivation: the app launches
-  # but DB-backed features stay broken until rebuilt natives are supplied. This
-  # matches the deb/rpm makers, which also consume a pre-staged tree. A future
-  # iteration can add a buildRustPackage-style fixed-output native build.
+  # The installer contains Windows native modules.  Runtime inputs pin the
+  # matching Electron-42 Linux modules and helper, outside the proprietary
+  # payload, so this package never falls back to PE binaries.
   #==========================================================================
   buildPhase = ''
     runHook preBuild
@@ -211,21 +162,26 @@ stdenvNoCC.mkDerivation {
     bash ${sourceRoot}/scripts/patches/mac-gates.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/linux-hub-viewport.sh "$main_bundle"
 
-    # Stage the unpacked native-module tree (Windows *.node kept as-is — see the
-    # NATIVE-MODULE NOTE above) and drop the win-ca crypt32 Windows bindings.
+    # Replace both copies of the Windows native modules before repacking.
     if [[ -d "$resources_src/app.asar.unpacked" ]]; then
       mkdir -p stage/app.asar.unpacked
       cp -a "$resources_src/app.asar.unpacked/." stage/app.asar.unpacked/
-      rm -f stage/app.asar.unpacked/.webpack/main/native_modules/lib/crypt32-*.node || true
     fi
+    native_rel=.webpack/main/native_modules/build/Release
+    for root in asar-contents stage/app.asar.unpacked; do
+      mkdir -p "$root/$native_rel"
+      install -m 0644 ${runtimeInputs.betterSqlite} "$root/$native_rel/better_sqlite3.node"
+      install -m 0644 ${runtimeInputs.sqlite} "$root/$native_rel/node_sqlite3.node"
+      rm -f "$root/.webpack/main/native_modules/lib/crypt32-"*.node || true
+    done
 
     # Repack with native modules left unpacked, then verify the Linux markers.
     asar pack asar-contents stage/app.asar --unpack '**/*.node'
     bash ${sourceRoot}/scripts/verify-patches.sh stage/app.asar
 
-    #-- 4. Stage the clean-room Linux helper (mode 0755 — the app does not chmod)
+    #-- 4. Stage the pinned Linux helper (mode 0755 — the app does not chmod)
     mkdir -p stage/Release
-    cp ${linux-helper}/bin/wispr-flow-linux-helper stage/Release/wispr-flow-linux-helper
+    cp ${runtimeInputs.helper} stage/Release/wispr-flow-linux-helper
     chmod 0755 stage/Release/wispr-flow-linux-helper
     rm -f "stage/Release/Wispr Flow Helper.exe" || true
 
