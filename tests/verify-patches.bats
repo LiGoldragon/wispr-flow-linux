@@ -61,7 +61,7 @@ write_fixture() {
 @test "verify: exits 0 when every marker present" {
 	local fixture
 	fixture="$(write_fixture)"
-	run "$VERIFY_SH" "$fixture"
+	run bash "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 0 ]] || {
 		echo 'verify rejected a fully-marked fixture'
 		echo "$output"
@@ -73,7 +73,7 @@ write_fixture() {
 @test "verify: prints an OK line per marker on success" {
 	local fixture
 	fixture="$(write_fixture)"
-	run "$VERIFY_SH" "$fixture"
+	run bash "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 0 ]]
 	run grep -c '  OK ' <<< "$output"
 	[[ "$output" -eq "${#MARKER_SAMPLES[@]}" ]]
@@ -86,7 +86,7 @@ write_fixture() {
 @test "verify: exits 1 when the helper branch marker is missing" {
 	local fixture
 	fixture="$(write_fixture branch)"
-	run "$VERIFY_SH" "$fixture"
+	run bash "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 1 ]]
 	[[ "$output" == *'MISSING'* ]]
 }
@@ -94,7 +94,7 @@ write_fixture() {
 @test "verify: exits 1 when the helper log-line marker is missing" {
 	local fixture
 	fixture="$(write_fixture logline)"
-	run "$VERIFY_SH" "$fixture"
+	run bash "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 1 ]]
 	[[ "$output" == *'MISSING'* ]]
 }
@@ -102,7 +102,7 @@ write_fixture() {
 @test "verify: exits 1 when the staged-path marker is missing" {
 	local fixture
 	fixture="$(write_fixture stagedpath)"
-	run "$VERIFY_SH" "$fixture"
+	run bash "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 1 ]]
 	[[ "$output" == *'MISSING'* ]]
 }
@@ -110,7 +110,7 @@ write_fixture() {
 @test "verify: exits 1 when the mac-gate marker is missing" {
 	local fixture
 	fixture="$(write_fixture macgate)"
-	run "$VERIFY_SH" "$fixture"
+	run bash "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 1 ]]
 	[[ "$output" == *'MISSING'* ]]
 }
@@ -118,7 +118,7 @@ write_fixture() {
 @test "verify: exits 1 when the helper-env marker is missing" {
 	local fixture
 	fixture="$(write_fixture helperenv)"
-	run "$VERIFY_SH" "$fixture"
+	run bash "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 1 ]]
 	[[ "$output" == *'MISSING'* ]]
 }
@@ -126,7 +126,7 @@ write_fixture() {
 @test "verify: exits 1 when the renderer-chrome marker is missing" {
 	local fixture
 	fixture="$(write_fixture chrome)"
-	run "$VERIFY_SH" "$fixture"
+	run bash "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 1 ]]
 	[[ "$output" == *'MISSING'* ]]
 }
@@ -134,7 +134,7 @@ write_fixture() {
 @test "verify: exits 1 when the window-frame marker is missing" {
 	local fixture
 	fixture="$(write_fixture windowframe)"
-	run "$VERIFY_SH" "$fixture"
+	run bash "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 1 ]]
 	[[ "$output" == *'MISSING'* ]]
 }
@@ -142,7 +142,7 @@ write_fixture() {
 @test "verify: exits 1 when the Hub viewport marker is missing" {
 	local fixture
 	fixture="$(write_fixture hubviewport)"
-	run "$VERIFY_SH" "$fixture"
+	run bash "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 1 ]]
 	[[ "$output" == *'MISSING'* ]]
 }
@@ -150,7 +150,7 @@ write_fixture() {
 @test "verify: exits 1 when the treat-as-windows marker is missing" {
 	local fixture
 	fixture="$(write_fixture treataswindows)"
-	run "$VERIFY_SH" "$fixture"
+	run bash "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 1 ]]
 	[[ "$output" == *'MISSING'* ]]
 }
@@ -158,7 +158,7 @@ write_fixture() {
 @test "verify: exits 1 when the deeplink marker is missing" {
 	local fixture
 	fixture="$(write_fixture deeplink)"
-	run "$VERIFY_SH" "$fixture"
+	run bash "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 1 ]]
 	[[ "$output" == *'MISSING'* ]]
 }
@@ -167,7 +167,7 @@ write_fixture() {
 	local name fixture failures=0
 	for name in "${!MARKER_SAMPLES[@]}"; do
 		fixture="$(write_fixture "$name")"
-		run "$VERIFY_SH" "$fixture"
+		run bash "$VERIFY_SH" "$fixture"
 		if [[ "$status" -ne 1 ]]; then
 			echo "omitting '$name' should exit 1, got $status"
 			echo "$output"
@@ -182,13 +182,13 @@ write_fixture() {
 # =============================================================================
 
 @test "verify: missing path argument exits 2 with usage" {
-	run "$VERIFY_SH"
+	run bash "$VERIFY_SH"
 	[[ "$status" -eq 2 ]]
 	[[ "$output" == *'usage:'* ]]
 }
 
 @test "verify: nonexistent file exits 2 with usage" {
-	run "$VERIFY_SH" "$TEST_TMP/no-such.asar"
+	run bash "$VERIFY_SH" "$TEST_TMP/no-such.asar"
 	[[ "$status" -eq 2 ]]
 	[[ "$output" == *'usage:'* ]]
 }
