@@ -42,6 +42,7 @@ MARKERS=(
   "helper-resolver: Linux branch marker|F|WISPR_LINUX_HELPER_BRANCH"
   "helper-resolver: Linux helper log line|F|Running packaged Linux Helper service"
   "helper-resolver: Linux helper staged path|F|wispr-flow-linux-helper"
+  "desktop observer: opt-in gRPC boundary loader|F|WISPR_DESKTOP_GRPC_OBSERVER"
   "helper-env: session env spread into helper spawn|F|WISPR_LINUX_HELPER_ENV"
   "mac-gates: darwin gate before getAppPath|P|if\\(\"darwin\"!==process\\.platform\\)return!1;const[ ]*[\\w\$]+=[\\w\$]+\\.app\\.getAppPath"
   "renderer-chrome: linux->win32 platform-class remap|F|WISPR_LINUX_WIN32_CHROME"

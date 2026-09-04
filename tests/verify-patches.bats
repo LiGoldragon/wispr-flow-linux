@@ -31,6 +31,8 @@ declare -gA MARKER_SAMPLES=(
 	[branch]='if (process.env.WISPR_LINUX_HELPER_BRANCH) { return "linux"; }'
 	[logline]='console.log("Running packaged Linux Helper service", { serviceScriptPath: p });'
 	[stagedpath]='const s = path.join(resourcesPath, "Release", "wispr-flow-linux-helper");'
+
+	[desktopobserver]='if(process.env.WISPR_DESKTOP_OBSERVER_DIR){try{require("./wispr-desktop-observer.js").install(require("@grpc/grpc-js"))}catch(_wdo){}}/*WISPR_DESKTOP_GRPC_OBSERVER*/'
 	[macgate]='if("darwin"!==process.platform)return!1;const q=z.app.getAppPath();'
 	[helperenv]='stdio:["pipe","pipe","pipe","pipe"],env:{/*WISPR_LINUX_HELPER_ENV*/...process.env,sentryDSN:x}'
 	[chrome]='e.classList.add(/*WISPR_LINUX_WIN32_CHROME*/"linux"===w.electron.platform.os?"win32":w.electron.platform.os);'
@@ -102,6 +104,14 @@ write_fixture() {
 @test "verify: exits 1 when the staged-path marker is missing" {
 	local fixture
 	fixture="$(write_fixture stagedpath)"
+	run bash "$VERIFY_SH" "$fixture"
+	[[ "$status" -eq 1 ]]
+	[[ "$output" == *'MISSING'* ]]
+}
+
+@test "verify: exits 1 when the desktop observer marker is missing" {
+	local fixture
+	fixture="$(write_fixture desktopobserver)"
 	run bash "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 1 ]]
 	[[ "$output" == *'MISSING'* ]]

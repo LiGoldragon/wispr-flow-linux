@@ -249,9 +249,20 @@ step3_patch_bundle() {
   fi
 
   if [[ -n "$target_bundle" ]]; then
+    local observer_source="$SCRIPT_DIR/wispr-desktop-observer.js"
+    local observer_target="$(dirname "$target_bundle")/wispr-desktop-observer.js"
+    if [[ -f "$observer_source" ]]; then
+      cp -p "$observer_source" "$observer_target"
+      auto "Staged opt-in desktop observer at $observer_target"
+    else
+      warn "Desktop observer source missing at $observer_source"
+    fi
     auto "Running patch-helper-resolver.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/helper-resolver.sh" "$target_bundle" \
       || warn "Patch failed -- see patch-helper-resolver.sh output above."
+    auto "Running desktop-observer.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/desktop-observer.sh" "$target_bundle" \
+      || warn "Desktop observer patch failed -- see desktop-observer.sh output above."
     # Gate the macOS-only "must be in /Applications" guard to darwin. On Linux it
     # otherwise shows a blocking "Move Flow to Applications folder" dialog and
     # calls app.quit() on launch. (Validated: 2026-06-04 launch.)

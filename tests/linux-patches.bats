@@ -69,6 +69,36 @@ class BrowserWindow {
   setBounds(bounds) { this.bounds = bounds; }
   setMinimumSize(width, height) { this.minimumSize = { width, height }; }
 }
+
+write_desktop_observer_fixture() {
+	cat > "$FIX" <<'JS'
+const process = { platform: "linux", env: {} };
+if("linux"===process.platform){/*WISPR_LINUX_HELPER_BRANCH*/const _wlp="helper";}
+JS
+}
+
+@test "desktop observer: loads only behind the explicit output-directory gate" {
+	write_desktop_observer_fixture
+	run bash "$PATCH_DIR/desktop-observer.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -q 'WISPR_DESKTOP_GRPC_OBSERVER' "$FIX"
+	grep -qF 'process.env.WISPR_DESKTOP_OBSERVER_DIR' "$FIX"
+	grep -qF 'require("@grpc/grpc-js")' "$FIX"
+	node_check "$FIX"
+}
+
+@test "desktop observer: idempotent on second run" {
+	write_desktop_observer_fixture
+	bash "$PATCH_DIR/desktop-observer.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/desktop-observer.sh" "$FIX"
+}
+
+@test "desktop observer: bails non-zero without the Linux helper branch" {
+	printf '%s\n' 'const process = { platform: "linux" };' > "$FIX"
+	run bash "$PATCH_DIR/desktop-observer.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_DESKTOP_GRPC_OBSERVER' "$FIX"
+}
 const i = {
   BrowserWindow,
   screen: { getDisplayMatching: () => ({ workArea }) },
