@@ -24,7 +24,16 @@ async function reclaim(socketPath) {
 }
 function sanitize(input) { const state = STATES.has(input?.state) ? input.state : "error"; const result = { state, hands_free: input?.hands_free === true }; if (state === "error" && /^[a-z0-9_.-]{1,64}$/.test(input?.error || "")) result.error = input.error; return result; }
 
-function startStatusBridge({ runtimeDir = process.env.XDG_RUNTIME_DIR, snapshot = () => ({}), controlTimeoutMs = 3000 } = {}) {
+function defaultRuntimeDir() {
+  const configured = process.env.XDG_RUNTIME_DIR;
+  if (path.isAbsolute(configured || "")) return configured;
+  if (process.platform !== "linux" || typeof process.getuid !== "function") return configured;
+  const uid = process.getuid(), candidate = path.join("/run/user", String(uid));
+  try { const stat = fs.statSync(candidate); return stat.isDirectory() && stat.uid === uid && (stat.mode & 0o077) === 0 ? candidate : configured; }
+  catch { return configured; }
+}
+
+function startStatusBridge({ runtimeDir = defaultRuntimeDir(), snapshot = () => ({}), controlTimeoutMs = 3000 } = {}) {
   if (!path.isAbsolute(runtimeDir || "")) throw new Error("XDG_RUNTIME_DIR is required");
   const statusPath = path.join(runtimeDir, "wispr-flow-status-v1.sock"), controlPath = path.join(runtimeDir, "wispr-flow-control-v1.sock"), sessionId = crypto.randomUUID();
   let sequence = 0, current = sanitize(snapshot()), action = null, queue = Promise.resolve();

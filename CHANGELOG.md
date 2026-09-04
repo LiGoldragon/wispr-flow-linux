@@ -20,6 +20,11 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 - Nix package `1.6.774+criomos.2` now owns the immutable signed installer;
   caller-provided installer paths and `WISPR_FLOW_EXE` are no longer accepted.
 
+### Fixed
+
+- Nix package `1.6.774+criomos.3` restores the app-owned status bridge when
+  Electron loses `XDG_RUNTIME_DIR` inside the FHS wrapper.
+
 ## [v1.0.3] - 2026-06-11
 
 ### Fixed

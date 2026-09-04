@@ -81,6 +81,10 @@
             inherit runtimeInputs;
           };
 
+          status-bootstrap = pkgs.callPackage ./nix/wispr-status-bootstrap-check.nix {
+            inherit wispr-flow;
+          };
+
           linux-patches =
             pkgs.runCommand "wispr-flow-linux-patches"
               {
