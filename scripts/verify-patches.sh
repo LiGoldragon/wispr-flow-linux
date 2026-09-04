@@ -55,6 +55,7 @@ MARKERS=(
   "status bridge: authoritative state publication|F|WISPR_LINUX_STATUS_PUBLICATION"
   "status bridge: real hands-free action hook|F|WISPR_LINUX_STATUS_CONTROL"
   "status bridge: Status window suppressed on Linux|F|WISPR_LINUX_STATUS_WINDOW_SUPPRESSED"
+  "status bridge: dictation cannot re-show Status window|F|WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED"
 )
 
 missing=0

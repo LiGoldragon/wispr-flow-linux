@@ -18,6 +18,7 @@
 	grep -qF 'WISPR_LINUX_STATUS_BRIDGE' "$main"
 	grep -qF 'WISPR_LINUX_STATUS_WINDOW_SUPPRESSED' "$main"
 	grep -qF 'WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED' "$main"
+	grep -qF 'if("linux"===process.platform)return;/*WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED*/const t=ie.RA.statusWindow' "$main"
 	grep -qF 'globalThis.__wisprStatusBridge?.setToggleHandsFree' "$main"
 	grep -qF 'await(0,z.Qw)(c.SB.Deeplink)' "$main"
 	grep -qF 'await(0,z.US)(c.SB.Deeplink)' "$main"
@@ -26,7 +27,7 @@
 
 @test "status patch rejects a one-line bundle containing every marker" {
 	local fake="$BATS_TEST_TMPDIR/all-markers.js"
-	printf '%s\n' '/*WISPR_LINUX_STATUS_BRIDGE WISPR_LINUX_STATUS_LIFECYCLE WISPR_LINUX_STATUS_PUBLICATION WISPR_LINUX_STATUS_CONTROL WISPR_LINUX_STATUS_WINDOW_SUPPRESSED*/' > "$fake"
+	printf '%s\n' '/*WISPR_LINUX_STATUS_BRIDGE WISPR_LINUX_STATUS_BOOTSTRAP WISPR_LINUX_STATUS_LIFECYCLE WISPR_LINUX_STATUS_PUBLICATION WISPR_LINUX_STATUS_CONTROL WISPR_LINUX_STATUS_WINDOW_SUPPRESSED WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED*/' > "$fake"
 	run bash "$BATS_TEST_DIRNAME/../scripts/patches/linux-status-bridge.sh" "$fake"
 	[[ $status -ne 0 ]]
 }

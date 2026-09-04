@@ -13,6 +13,8 @@ if grep -q "$MARKER" "$BUNDLE"; then
     && grep -q 'WISPR_LINUX_STATUS_PUBLICATION' "$BUNDLE" \
     && grep -q 'WISPR_LINUX_STATUS_CONTROL' "$BUNDLE" \
     && grep -q 'WISPR_LINUX_STATUS_WINDOW_SUPPRESSED' "$BUNDLE" \
+    && grep -q 'WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED' "$BUNDLE" \
+    && grep -qF 'if("linux"===process.platform)return;/*WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED*/const t=' "$BUNDLE" \
     && grep -qF 'globalThis.__wisprStatusBridge?.publish(globalThis.__wisprStatusSnapshot(e))' "$BUNDLE" \
     && grep -qF 'globalThis.__wisprStatusBridge?.setToggleHandsFree(async()=>' "$BUNDLE" \
     && grep -qF 'await(0,z.Qw)(c.SB.Deeplink)' "$BUNDLE" \
@@ -27,7 +29,7 @@ BEFORE="$BUNDLE.status-bridge-before"
 cp -p "$BUNDLE" "$BEFORE" || exit 1
 
 python3 - "$BUNDLE" "$MARKER" <<'PY'
-import io, sys
+import io, re, sys
 path, marker = sys.argv[1:]
 with io.open(path, encoding="utf-8", errors="surrogateescape") as f: data = f.read()
 
@@ -54,6 +56,26 @@ data = replace_once(hands_free, control_hook, "actual hands-free action")
 status_show = 'y.H8&&!J&&F.setEnabled(!0),e.showInactive(),y.H8&&'
 data = replace_once(status_show, 'y.H8&&!J&&F.setEnabled(!0),"linux"!==process.platform&&e.showInactive(),y.H8&&/*WISPR_LINUX_STATUS_WINDOW_SUPPRESSED*/', "status-window show")
 
+dictation_reshow = re.compile(
+    r'(?P<head>[\w$]+=\(e=[\w$]+\.H8\)=>\{)'
+    r'(?=const t=[\w$]+\.RA\.statusWindow;'
+    r'if\(!t\|\|t\.isDestroyed\(\)\)return [\w$]+\(\)\.error\('
+    r'"Status window is not available or destroyed\. Recreating\."\))'
+)
+matches = list(dictation_reshow.finditer(data))
+if len(matches) != 1:
+    raise SystemExit(
+        "ERROR: expected one dictation status-window recovery anchor, "
+        f"found {len(matches)}."
+    )
+data = dictation_reshow.sub(
+    lambda match: match.group("head")
+    + 'if("linux"===process.platform)return;'
+    + '/*WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED*/',
+    data,
+    count=1,
+)
+
 with io.open(path, "w", encoding="utf-8", errors="surrogateescape") as f: f.write(data)
 PY
 
@@ -62,7 +84,8 @@ if ! grep -q "$MARKER" "$BUNDLE" \
   || ! grep -q 'WISPR_LINUX_STATUS_BOOTSTRAP' "$BUNDLE" \
   || ! grep -q 'WISPR_LINUX_STATUS_PUBLICATION' "$BUNDLE" \
   || ! grep -q 'WISPR_LINUX_STATUS_CONTROL' "$BUNDLE" \
-  || ! grep -q 'WISPR_LINUX_STATUS_WINDOW_SUPPRESSED' "$BUNDLE"; then
+  || ! grep -q 'WISPR_LINUX_STATUS_WINDOW_SUPPRESSED' "$BUNDLE" \
+  || ! grep -q 'WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED' "$BUNDLE"; then
   cp -p "$BEFORE" "$BUNDLE"
   rm -f "$BEFORE"
   echo "ERROR: bridge marker missing" >&2

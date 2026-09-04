@@ -8,6 +8,10 @@ variable, the app recovers the same user-owned private runtime directory at
 ready, before any dictation lifecycle transition. No helper acknowledgement,
 keyboard event, transcript, or credential is exposed.
 
+The upstream Status BrowserWindow stays hidden on Linux both when its ordinary
+show path runs and when dictation-start visibility recovery runs. Noctalia is
+the only status surface in the managed desktop integration.
+
 Every status client immediately receives a newline-delimited JSON `snapshot`:
 `contract`, `type`, `session_id`, `sequence`, `state`, and `hands_free`.
 `state` is `idle`, `recording`, `transcribing`, or `error`; only an optional
