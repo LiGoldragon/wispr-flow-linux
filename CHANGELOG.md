@@ -22,6 +22,9 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Fixed
 
+- Nix package `1.6.774+criomos.6` refreshes its status snapshot while
+  recording and acknowledges hands-free controls only after the authoritative
+  lock-mode publication.
 - Nix package `1.6.774+criomos.5` keeps the upstream Status BrowserWindow
   hidden when dictation-start visibility recovery runs on Linux.
 - Nix package `1.6.774+criomos.4` starts the status bridge at Electron main

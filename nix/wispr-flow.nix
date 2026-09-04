@@ -16,7 +16,7 @@
 }:
 let
   pname = "wispr-flow";
-  version = "1.6.774+criomos.5";
+  version = "1.6.774+criomos.6";
   installerSha256 = "fd30ef74f10348241e4a64ab4fc6619084ec5b7108cdc6444c3c290620861beb";
 
   #============================================================================

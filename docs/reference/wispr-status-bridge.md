@@ -18,9 +18,14 @@ Every status client immediately receives a newline-delimited JSON `snapshot`:
 machine-safe error code may accompany `error`. A process start changes
 `session_id`; each lifecycle transition increments `sequence`.
 
+The bridge republishes its current snapshot every second, below the consumer's
+five-second stale threshold, so an unchanged recording remains live. The
+authoritative lock mutator also publishes the current `hands_free` value.
+
 The control socket accepts only `{contract,type:"control",id,command:"toggle_hands_free"}`.
 It replies with `control_result`, `id`, `ok`, and `hands_free` on success. The
-app invokes its own start/stop hands-free actions before replying. Use:
+app starts from `Idle` or `Dismissed` and stops only when `Listening` is locked;
+it publishes the resulting mode before replying. Use:
 
 ```
 wispr-flow-status toggle-hands-free

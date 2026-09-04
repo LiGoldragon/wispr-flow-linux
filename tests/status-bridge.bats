@@ -73,6 +73,49 @@ NODE
 	[[ $status -eq 0 ]]
 }
 
+@test "bridge heartbeats a continuing recording state with a later sequence" {
+	run node - <<'NODE'
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const net = require("node:net");
+const { startStatusBridge } = require(process.env.BRIDGE);
+
+const runtime = `${process.env.TEST_TMP}/runtime`;
+fs.mkdirSync(runtime, { mode: 0o700 });
+const bridge = startStatusBridge({
+  runtimeDir: runtime,
+  heartbeatMs: 10,
+  snapshot: () => ({ state: "recording", hands_free: true }),
+});
+
+(async () => {
+  await bridge.ready;
+  const packets = await new Promise((resolve, reject) => {
+    const socket = net.connect(bridge.statusPath);
+    let buffer = "";
+    const deadline = setTimeout(() => {
+      socket.destroy();
+      reject(new Error("recording heartbeat did not arrive"));
+    }, 250);
+    socket.on("data", chunk => {
+      buffer += chunk;
+      const lines = buffer.trim().split("\n");
+      if (lines.length < 2) return;
+      clearTimeout(deadline);
+      socket.destroy();
+      resolve(lines.slice(0, 2).map(JSON.parse));
+    });
+    socket.on("error", error => { clearTimeout(deadline); reject(error); });
+  });
+  assert.deepEqual(packets.map(packet => packet.state), ["recording", "recording"]);
+  assert.deepEqual(packets.map(packet => packet.hands_free), [true, true]);
+  assert.ok(packets[1].sequence > packets[0].sequence);
+  await bridge.close();
+})().catch(error => { console.error(error); process.exitCode = 1; });
+NODE
+	[[ $status -eq 0 ]]
+}
+
 @test "bridge control replies only after the registered hands-free action" {
 	run node - <<'NODE'
 const assert = require("node:assert/strict");
