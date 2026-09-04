@@ -17,6 +17,7 @@
 	node --check "$main"
 	grep -qF 'WISPR_LINUX_STATUS_BRIDGE' "$main"
 	grep -qF 'WISPR_LINUX_STATUS_WINDOW_SUPPRESSED' "$main"
+	grep -qF 'WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED' "$main"
 	grep -qF 'globalThis.__wisprStatusBridge?.setToggleHandsFree' "$main"
 	grep -qF 'await(0,z.Qw)(c.SB.Deeplink)' "$main"
 	grep -qF 'await(0,z.US)(c.SB.Deeplink)' "$main"
