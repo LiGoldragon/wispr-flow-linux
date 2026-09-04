@@ -46,6 +46,9 @@ buildFHSEnv {
     # works against the wrapper too.
     mkdir -p $out/lib/udev/rules.d
     cp ${wispr-flow}/lib/udev/rules.d/* $out/lib/udev/rules.d/
+
+    mkdir -p $out/bin
+    cp ${wispr-flow}/bin/wispr-flow-status $out/bin/wispr-flow-status
   '';
 
   meta = wispr-flow.meta // {

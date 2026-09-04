@@ -34,7 +34,7 @@ SCRIPTS_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 #--- shared maker signature ----------------------------------------------------
 DIST="${1:-$PROJECT_ROOT/build-linux/downloads/electron-dist}"
-APP_VERSION="${2:-${APP_VERSION:-1.5.695}}"
+APP_VERSION="${2:-${APP_VERSION:-1.6.774}}"
 # Default deb arch from the host: dpkg knows the canonical name when present.
 _default_arch="amd64"
 if command -v dpkg >/dev/null 2>&1; then
@@ -149,6 +149,11 @@ cd "\$app_dir" || { log_message "Failed to cd to \$app_dir"; exit 1; }
 exec "\$electron_bin" "\${electron_args[@]}" "\$@" >> "\$log_file" 2>&1
 EOF
 chmod 0755 "$PKGROOT/usr/bin/$NAME"
+cat > "$PKGROOT/usr/bin/wispr-flow-status" <<EOF
+#!/usr/bin/env bash
+exec env ELECTRON_RUN_AS_NODE=1 /usr/lib/$NAME/$NAME /usr/lib/$NAME/resources/wispr-flow-status.cjs "\$@"
+EOF
+chmod 0755 "$PKGROOT/usr/bin/wispr-flow-status"
 
 say "Desktop entry + icons"
 mkdir -p "$PKGROOT/usr/share/applications"

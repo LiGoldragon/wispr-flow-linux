@@ -69,6 +69,7 @@ class BrowserWindow {
   setBounds(bounds) { this.bounds = bounds; }
   setMinimumSize(width, height) { this.minimumSize = { width, height }; }
 }
+
 const i = {
   BrowserWindow,
   screen: { getDisplayMatching: () => ({ workArea }) },
@@ -83,6 +84,33 @@ const safe = hub.getBounds().height <= workArea.height
   && hub.css.includes('position:sticky!important');
 if (!safe) process.exit(1);
 JS
+}
+
+# =============================================================================
+# helper-env.sh
+# =============================================================================
+
+@test "helper-env: preserves the Wayland session for the real helper spawn" {
+	# 1.6.774 factors telemetry-only helper env construction into N().  Execute
+	# the patched fixture rather than merely inspecting its source: the helper
+	# spawn must inherit the session display variables it needs for native
+	# Wayland injection.
+	cat > "$FIX" <<'JS'
+const process={env:{WAYLAND_DISPLAY:"wayland-1",XDG_RUNTIME_DIR:"/run/user/1000"}};
+const a={app:{isPackaged:true}},f={kL:"dsn",M0:"production",yj:"segment",jd:"posthog",iP:false},N=(e=a.app.isPackaged)=>({sentryDSN:f.kL,environment:f.M0,segmentWriteKey:f.yj,postHogProjectKey:f.jd,sentryLocalDebug:f.iP?"true":"",developmentFileLogging:e?"false":"true"});
+const observed=[];
+const spawn=(command,options)=>{observed.push({command,options});return {pid:1}};
+const E={RA:{helper:{}}};
+const s="wispr-flow-linux-helper";
+E.RA.helper.process=spawn(s,{stdio:["pipe","pipe","pipe","pipe"],env:N()});
+if(observed.length!==1||observed[0].options.env.WAYLAND_DISPLAY!=="wayland-1"||observed[0].options.env.XDG_RUNTIME_DIR!=="/run/user/1000")process.exit(1);
+JS
+	run bash "$PATCH_DIR/helper-env.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -q 'WISPR_LINUX_HELPER_ENV' "$FIX"
+	node_check "$FIX"
+	run node "$FIX"
+	[[ "$status" -eq 0 ]]
 }
 
 # =============================================================================

@@ -49,6 +49,8 @@ MARKERS=(
   "hub-viewport: Flow Hub work-area and onboarding safety|F|WISPR_LINUX_HUB_VIEWPORT"
   "treat-as-windows: linux widens renderer isWindows bind|F|WISPR_LINUX_RENDERER_ISWIN"
   "deeplink: linux cold-start argv parse|F|WISPR_LINUX_DEEPLINK"
+  "status bridge: authoritative Linux lifecycle/control bridge|F|WISPR_LINUX_STATUS_BRIDGE"
+  "status bridge: Status window suppressed on Linux|F|WISPR_LINUX_STATUS_WINDOW_SUPPRESSED"
 )
 
 missing=0

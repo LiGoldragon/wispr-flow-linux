@@ -8,6 +8,16 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ## [Unreleased]
 
+### Added
+
+- Linux-only `com.criomos.wispr.status.v1`: app-owned private runtime-socket
+  snapshots and a typed `wispr-flow-status toggle-hands-free` control CLI.
+
+### Changed
+
+- Bundled Wispr Flow pin updated to audited signed upstream `1.6.774`
+  (`fd30ef74f10348241e4a64ab4fc6619084ec5b7108cdc6444c3c290620861beb`).
+
 ## [v1.0.3] - 2026-06-11
 
 ### Fixed

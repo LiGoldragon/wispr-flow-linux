@@ -18,7 +18,8 @@
 }:
 let
   pname = "wispr-flow";
-  version = "1.6.7";
+  version = "1.6.774+criomos.1";
+  installerSha256 = "fd30ef74f10348241e4a64ab4fc6619084ec5b7108cdc6444c3c290620861beb";
 
   #============================================================================
   # Source: the user-supplied Wispr Flow Windows installer (a Squirrel .exe).
@@ -135,6 +136,7 @@ stdenvNoCC.mkDerivation {
     export HOME=$TMPDIR
 
     #-- 1. Extract the Squirrel .exe -> *-full.nupkg -> Electron payload -----
+    test "$(sha256sum "$src" | cut -d' ' -f1)" = "${installerSha256}"
     7z x -y "$src" -oinstaller >/dev/null
     nupkg=$(find installer -iname '*-full.nupkg' | head -1)
     [[ -n "$nupkg" ]] || { echo "no *-full.nupkg in installer" >&2; exit 1; }
@@ -166,6 +168,10 @@ stdenvNoCC.mkDerivation {
     bash ${sourceRoot}/scripts/patches/linux-window-frame.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/linux-hub-viewport.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/linux-deeplink.sh "$main_bundle"
+    bash ${sourceRoot}/scripts/patches/linux-status-bridge.sh "$main_bundle"
+
+    install -m 0644 ${sourceRoot}/scripts/wispr-status-bridge.cjs stage/wispr-status-bridge.cjs
+    install -m 0755 ${sourceRoot}/scripts/wispr-flow-status.cjs stage/wispr-flow-status.cjs
 
     webpack_root=asar-contents/.webpack
     hub_renderer="$webpack_root/renderer/hub/index.js"
@@ -353,6 +359,15 @@ LAUNCHER
       --replace-fail "RESOURCES_PLACEHOLDER" "$electron_tree/resources" \
       --replace-fail "LAUNCHER_LIB_PLACEHOLDER" "$out/lib/wispr-flow/launcher-common.sh"
     chmod +x $out/bin/wispr-flow
+
+    cat > $out/bin/wispr-flow-status <<'STATUS'
+#!/usr/bin/env bash
+exec env ELECTRON_RUN_AS_NODE=1 "ELECTRON_PLACEHOLDER" "RESOURCES_PLACEHOLDER/wispr-flow-status.cjs" "$@"
+STATUS
+    substituteInPlace $out/bin/wispr-flow-status \
+      --replace-fail "ELECTRON_PLACEHOLDER" "$electron_tree/wispr-flow" \
+      --replace-fail "RESOURCES_PLACEHOLDER" "$electron_tree/resources"
+    chmod +x $out/bin/wispr-flow-status
 
     runHook postInstall
   '';

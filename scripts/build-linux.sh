@@ -54,7 +54,7 @@ STAGE="$WORK_DIR/stage"                          # becomes the app's resources/ 
 # override is exported. Keep APP_VERSION in lockstep with build.sh's APP_VERSION
 # so a standalone `build-linux.sh` run stages the same version the orchestrator
 # does (a divergent default silently mislabels the staged tree).
-APP_VERSION="${APP_VERSION:-1.5.695}"
+APP_VERSION="${APP_VERSION:-1.6.774}"
 ELECTRON_MAJOR="${ELECTRON_MAJOR:-42}"
 ELECTRON_VERSION="${ELECTRON_VERSION:-42.3.0}"
 ARCH="${ARCH:-x64}"   # linux-x64; the helper + sqlite must match
@@ -214,6 +214,9 @@ step2_stage_resources() {
     warn "Resources source missing -- skipping copy."
   fi
 
+  install -m 0644 "$SCRIPT_DIR/wispr-status-bridge.cjs" "$STAGE/wispr-status-bridge.cjs"
+  install -m 0755 "$SCRIPT_DIR/wispr-flow-status.cjs" "$STAGE/wispr-flow-status.cjs"
+
   # Unpack app.asar so we can patch the main bundle.
   local contents="$WORK_DIR/app.asar.contents"
   if [[ -f "$RESOURCES_SRC/app.asar" ]] && command -v npx >/dev/null; then
@@ -282,6 +285,9 @@ step3_patch_bundle() {
     auto "Running linux-deeplink.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-deeplink.sh" "$target_bundle" \
       || warn "Deep-link patch failed -- see linux-deeplink.sh output above."
+    auto "Running linux-status-bridge.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-status-bridge.sh" "$target_bundle" \
+      || die "Status bridge patch failed; refusing to package an unverified bridge."
 
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"

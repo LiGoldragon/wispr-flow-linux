@@ -81,3 +81,7 @@ the ways it bites.
   keycodes (with companion `keycodes.json` / `commands.json`)
 - [**scripts/README.md**](../scripts/README.md) — the Phase-0 packaging pipeline
   step-by-step
+# Status integration
+
+See [Wispr status bridge v1](reference/wispr-status-bridge.md) for the private,
+text-free Noctalia integration contract and packaged toggle command.

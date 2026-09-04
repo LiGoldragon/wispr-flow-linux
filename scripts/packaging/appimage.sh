@@ -32,7 +32,7 @@ SCRIPTS_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 #--- shared maker signature ----------------------------------------------------
 DIST="${1:-$PROJECT_ROOT/build-linux/downloads/electron-dist}"
-APP_VERSION="${2:-${APP_VERSION:-1.5.695}}"
+APP_VERSION="${2:-${APP_VERSION:-1.6.774}}"
 ARCH="${3:-$(uname -m)}"
 
 #--- metadata from env, with standalone fallbacks ------------------------------
@@ -104,6 +104,10 @@ appdir="\$(dirname "\$(readlink -f "\$0")")"
 app_dir="\$appdir/usr/lib/$NAME"
 electron_bin="\$app_dir/$NAME"
 helper_bin="\$app_dir/resources/Release/wispr-flow-linux-helper"
+
+if [[ "\${1:-}" == '--toggle-hands-free' ]]; then
+	exec env ELECTRON_RUN_AS_NODE=1 "\$electron_bin" "\$app_dir/resources/wispr-flow-status.cjs" toggle-hands-free
+fi
 
 # Source shared launcher library (it sources doctor.sh from the same dir).
 # shellcheck source=/dev/null

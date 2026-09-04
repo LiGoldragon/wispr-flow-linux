@@ -86,7 +86,8 @@
               ''
                 bats --print-output-on-failure \
                   ${self}/tests/linux-patches.bats \
-                  ${self}/tests/verify-patches.bats
+                  ${self}/tests/verify-patches.bats \
+                  ${self}/tests/status-bridge.bats
                 touch "$out"
               '';
         }

@@ -35,13 +35,13 @@
 #
 # THE PATCH (surgical, one insertion point)
 # -----------------------------------------
-# Anchor on the stable spawn literal (the 4-pipe stdio + the telemetry env
-# object -- both are preserved across minification because the stdio array and
-# the telemetry keys are string/property literals, not minified identifiers).
-# Insert a `...process.env,` spread at the FRONT of the env object so the
-# session env propagates, while the telemetry keys that follow still override
-# anything of the same name. On mac/win this only adds the (harmless) parent
-# env the helper already ignores, so the patch cannot regress those platforms.
+# In upstream 1.6.774, the stable four-pipe spawn still calls `env:N()`, but
+# the telemetry-only object is now factored into `const N=(...)=>(...)`.
+# Anchor on that function's first stable telemetry property rather than
+# pretending the old inline object still exists. Insert `...process.env,` at
+# the FRONT of its returned object so session variables propagate, while the
+# telemetry keys that follow still override anything of the same name. On
+# macOS/Windows this only adds the parent env the helper already ignores.
 #
 #   env:{...process.env,sentryDSN:...}   (marker comment carries the grep token)
 #
@@ -80,20 +80,22 @@ path, marker = sys.argv[1], sys.argv[2]
 with io.open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
     data = f.read()
 
-# The helper spawn site: 4-pipe stdio (fd 3 = IPC channel) + the telemetry-only
-# replacement env. Unique in the bundle; if upstream ever spreads process.env
-# itself, the `...process.env` check below makes this a clean no-op.
-anchor = 'stdio:["pipe","pipe","pipe","pipe"],env:{'
+# The 1.6.774 helper env factory. `sentryDSN` is a retained property name and
+# the complete prefix is unique in the audited bundle. If upstream starts
+# inheriting the parent env itself, this fails closed for re-audit instead of
+# accepting an unknown helper launch shape.
+anchor = ',N=(e=a.app.isPackaged)=>({sentryDSN:'
 n = data.count(anchor)
 if n != 1:
-    sys.exit(f"ERROR: expected exactly 1 helper-spawn env anchor, found {n}.")
+    sys.exit(f"ERROR: expected exactly 1 helper-env factory anchor, found {n}.")
 
 after = data[data.find(anchor) + len(anchor):]
 if after.startswith("...process.env") or after.startswith(f"/*{marker}*/"):
     sys.exit(0)  # already spreads the parent env -- nothing to do
 
-# Insert the marker comment + spread at the front of the env object literal.
-repl = anchor + f"/*{marker}*/...process.env,"
+# Insert the marker comment + spread at the front of N()'s returned object.
+# The `sentryDSN:` prefix remains intact after the inserted comma.
+repl = anchor.replace("sentryDSN:", f"/*{marker}*/...process.env,sentryDSN:")
 data = data.replace(anchor, repl, 1)
 
 with io.open(path, "w", encoding="utf-8", errors="surrogateescape") as f:
