@@ -39,6 +39,9 @@ declare -gA MARKER_SAMPLES=(
 	[treataswindows]='const x=((y?.platform?.isWindows??!1)||"linux"===y?.platform?.os)/*WISPR_LINUX_RENDERER_ISWIN*/;'
 	[deeplink]='if(f.H8||"linux"===process.platform){/*WISPR_LINUX_DEEPLINK*/const e=process.argv.find(x=>x.startsWith("wispr-flow:"));}'
 	[statusbridge]='globalThis.__wisprStatusBridge=/*WISPR_LINUX_STATUS_BRIDGE*/bridge;'
+	[statuslifecycle]='/*WISPR_LINUX_STATUS_LIFECYCLE*/'
+	[statuspublication]='/*WISPR_LINUX_STATUS_PUBLICATION*/'
+	[statuscontrol]='/*WISPR_LINUX_STATUS_CONTROL*/'
 	[statuswindow]='"linux"!==process.platform&&e.showInactive()/*WISPR_LINUX_STATUS_WINDOW_SUPPRESSED*/;'
 )
 
@@ -53,6 +56,8 @@ write_fixture() {
 		[[ $name == "$omit" ]] && continue
 		printf '%s\n' "${MARKER_SAMPLES[$name]}" >> "$fixture"
 	done
+	: > "$TEST_TMP/wispr-status-bridge.cjs"
+	: > "$TEST_TMP/wispr-flow-status.cjs"
 	printf '%s' "$fixture"
 }
 
@@ -78,7 +83,7 @@ write_fixture() {
 	run bash "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 0 ]]
 	run grep -c '  OK ' <<< "$output"
-	[[ "$output" -eq "${#MARKER_SAMPLES[@]}" ]]
+	[[ "$output" -eq "$(( ${#MARKER_SAMPLES[@]} + 2 ))" ]]
 }
 
 # =============================================================================

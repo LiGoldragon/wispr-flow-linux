@@ -515,10 +515,10 @@ jobs:
       - name: Extract version components from tag
         id: version
         run: |
-          tag="${GITHUB_REF_NAME}"          # v1.0.0+wispr1.5.695
-          pkgver="${tag#v}"                  # 1.0.0+wispr1.5.695
+          tag="${GITHUB_REF_NAME}"          # v1.0.0+wispr1.6.774
+          pkgver="${tag#v}"                  # 1.0.0+wispr1.6.774
           repo_ver="${pkgver%%+wispr*}"     # 1.0.0
-          wispr_ver="${pkgver#*+wispr}"      # 1.5.695
+          wispr_ver="${pkgver#*+wispr}"      # 1.6.774
           appimage_name="wispr-flow-${wispr_ver}-${repo_ver}-x86_64.AppImage"
           echo "pkgver=$pkgver" >> "$GITHUB_OUTPUT"
           echo "appimage_name=$appimage_name" >> "$GITHUB_OUTPUT"

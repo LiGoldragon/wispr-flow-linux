@@ -50,6 +50,9 @@ MARKERS=(
   "treat-as-windows: linux widens renderer isWindows bind|F|WISPR_LINUX_RENDERER_ISWIN"
   "deeplink: linux cold-start argv parse|F|WISPR_LINUX_DEEPLINK"
   "status bridge: authoritative Linux lifecycle/control bridge|F|WISPR_LINUX_STATUS_BRIDGE"
+  "status bridge: lifecycle mapper bootstrap|F|WISPR_LINUX_STATUS_LIFECYCLE"
+  "status bridge: authoritative state publication|F|WISPR_LINUX_STATUS_PUBLICATION"
+  "status bridge: real hands-free action hook|F|WISPR_LINUX_STATUS_CONTROL"
   "status bridge: Status window suppressed on Linux|F|WISPR_LINUX_STATUS_WINDOW_SUPPRESSED"
 )
 
@@ -66,6 +69,16 @@ for entry in "${MARKERS[@]}"; do
     echo "  OK      $label"
   else
     echo "  MISSING $label" >&2
+    missing=1
+  fi
+done
+
+runtime_dir=$(dirname "$ASAR")
+for runtime in wispr-status-bridge.cjs wispr-flow-status.cjs; do
+  if [[ -f "$runtime_dir/$runtime" ]]; then
+    echo "  OK      status bridge runtime: $runtime"
+  else
+    echo "  MISSING status bridge runtime: $runtime" >&2
     missing=1
   fi
 done

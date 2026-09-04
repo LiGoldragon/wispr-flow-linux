@@ -17,7 +17,7 @@ on:
         required: true
         type: string
       release_tag:
-        description: "Release tag (e.g., v1.0.0+wispr1.5.695) to derive package version"
+        description: "Release tag (e.g., v1.0.0+wispr1.6.774) to derive package version"
         required: false
         type: string
         default: ""

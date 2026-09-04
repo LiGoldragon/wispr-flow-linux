@@ -20,3 +20,9 @@ wispr-flow-status toggle-hands-free
 ```
 
 For an AppImage use `Wispr-Flow.AppImage --toggle-hands-free`.
+
+The bridge first binds exclusively and never unlinks a socket that accepts a
+connection. Reclaiming a refused stale pathname has an unavoidable same-user
+TOCTOU window: another process with the same UID can replace it between the
+probe and unlink. Socket mode `0600` prevents other UIDs, but this is not a
+same-UID security boundary; competing same-user launches are unsupported.

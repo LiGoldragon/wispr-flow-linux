@@ -185,8 +185,8 @@ step1_extract() {
   manual "This was performed by Track 1; the result lives in $EXTRACT_DIR."
   manual "To redo from a fresh installer (requires 7z):"
   cat <<'DOC'
-      7z x "Wispr Flow Setup-v1.5.695.exe" -o./extract            # -> *-full.nupkg
-      7z x "./extract/WisprFlow-1.5.695-full.nupkg" -o./extract/nupkg
+      7z x "Wispr Flow Setup-v1.6.774.exe" -o./extract            # -> *-full.nupkg
+      7z x "./extract/WisprFlow-1.6.774-full.nupkg" -o./extract/nupkg
       # Electron payload is then under extract/nupkg/lib/net45/
       # (resources/app.asar, resources/app.asar.unpacked/, resources/Release/, Wispr Flow.exe, *.pak)
 DOC

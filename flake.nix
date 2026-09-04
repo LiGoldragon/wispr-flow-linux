@@ -36,6 +36,10 @@
           pkgs = pkgsFor system;
           runtimeInputs = pkgs.callPackage ./nix/runtime-inputs.nix { };
           wispr-flow = pkgs.callPackage ./nix/wispr-flow.nix { inherit runtimeInputs; };
+          signedInstaller = pkgs.fetchurl {
+            url = "https://dl.wisprflow.com/wispr-flow/win32/x64/Wispr%20Flow%20Setup-v1.6.774.exe";
+            hash = "sha256-/TDvdPEDSCQeSmSrT8ZhkITsW3EIzcZETDwpBiCGG+s=";
+          };
           wispr-flow-fhs = pkgs.callPackage ./nix/fhs.nix { inherit wispr-flow; };
         in
         {
@@ -52,6 +56,10 @@
           pkgs = pkgsFor system;
           runtimeInputs = pkgs.callPackage ./nix/runtime-inputs.nix { };
           wispr-flow = pkgs.callPackage ./nix/wispr-flow.nix { inherit runtimeInputs; };
+          signedInstaller = pkgs.fetchurl {
+            url = "https://dl.wisprflow.com/wispr-flow/win32/x64/Wispr%20Flow%20Setup-v1.6.774.exe";
+            hash = "sha256-/TDvdPEDSCQeSmSrT8ZhkITsW3EIzcZETDwpBiCGG+s=";
+          };
         in
         {
           # A real derivation of the packaged archive.  Run with
@@ -81,9 +89,18 @@
                   pkgs.bats
                   pkgs.nodejs
                   pkgs.python3
+                  pkgs.p7zip
+                  pkgs.asar
                 ];
               }
               ''
+                mkdir payload
+                7z x -y ${signedInstaller} -opayload/installer >/dev/null
+                nupkg=$(find payload/installer -iname '*-full.nupkg' | head -1)
+                test -n "$nupkg"
+                7z x -y "$nupkg" -opayload/nupkg >/dev/null
+                asar extract payload/nupkg/lib/net45/resources/app.asar payload/app
+                export WISPR_FLOW_AUDIT_APP="$PWD/payload/app"
                 bats --print-output-on-failure \
                   ${self}/tests/linux-patches.bats \
                   ${self}/tests/verify-patches.bats \

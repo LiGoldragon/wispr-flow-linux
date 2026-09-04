@@ -19,3 +19,10 @@
 	grep -qF 'WISPR_LINUX_STATUS_WINDOW_SUPPRESSED' "$main"
 	grep -qF 'globalThis.__wisprStatusBridge?.setToggleHandsFree' "$main"
 }
+
+@test "status patch rejects a one-line bundle containing every marker" {
+	local fake="$BATS_TEST_TMPDIR/all-markers.js"
+	printf '%s\n' '/*WISPR_LINUX_STATUS_BRIDGE WISPR_LINUX_STATUS_LIFECYCLE WISPR_LINUX_STATUS_PUBLICATION WISPR_LINUX_STATUS_CONTROL WISPR_LINUX_STATUS_WINDOW_SUPPRESSED*/' > "$fake"
+	run bash "$BATS_TEST_DIRNAME/../scripts/patches/linux-status-bridge.sh" "$fake"
+	[[ $status -ne 0 ]]
+}

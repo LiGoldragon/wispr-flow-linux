@@ -89,7 +89,7 @@ const bridge = startStatusBridge({
 });
 bridge.setToggleHandsFree(async () => {
   actions += 1;
-  bridge.publish({ state: "recording", hands_free: true });
+  setTimeout(() => bridge.publish({ state: "recording", hands_free: true }), 5);
   return { hands_free: true };
 });
 
@@ -135,6 +135,16 @@ assert.deepEqual(mapWisprState("listening"), {state:"recording"});
 assert.deepEqual(mapWisprState("initializing"), {state:"recording"});
 assert.deepEqual(mapWisprState("processing"), {state:"transcribing"});
 assert.deepEqual(mapWisprState("testing"), {state:"error",error:"unknown_lifecycle_state"});
+NODE
+	[[ $status -eq 0 ]]
+}
+
+@test "control rejects action failure and pre-existing target without a new transition" {
+	run node - <<'NODE'
+const assert=require("node:assert/strict"),fs=require("node:fs"),net=require("node:net"),{startStatusBridge}=require(process.env.BRIDGE);
+const runtime=`${process.env.TEST_TMP}/runtime`;fs.mkdirSync(runtime,{mode:0o700});
+const request=(p,id)=>new Promise((resolve,reject)=>{const s=net.connect(p);let b="";s.on("connect",()=>s.write(JSON.stringify({contract:"com.criomos.wispr.status.v1",type:"control",id,command:"toggle_hands_free"})+"\n"));s.on("data",d=>{b+=d;const n=b.indexOf("\n");if(n>=0){s.destroy();resolve(JSON.parse(b.slice(0,n)))}});s.on("error",reject)});
+(async()=>{let bridge=startStatusBridge({runtimeDir:runtime,controlTimeoutMs:30,snapshot:()=>({state:"idle",hands_free:false})});bridge.setToggleHandsFree(async()=>{throw new Error("rejected")});await bridge.ready;assert.equal((await request(bridge.controlPath,"reject")).error,"action_failed");await bridge.close();bridge=startStatusBridge({runtimeDir:runtime,controlTimeoutMs:30,snapshot:()=>({state:"recording",hands_free:true})});bridge.setToggleHandsFree(async()=>({hands_free:true}));await bridge.ready;assert.equal((await request(bridge.controlPath,"old")).error,"state_timeout");await bridge.close()})().catch(e=>{console.error(e);process.exitCode=1});
 NODE
 	[[ $status -eq 0 ]]
 }
