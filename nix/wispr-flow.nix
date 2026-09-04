@@ -12,53 +12,27 @@
   python3,
   bash,
   rsync,
-  # Path to the Wispr Flow installer .exe you obtained yourself. This build never
-  # fetches the proprietary app (see the Source block below for how to supply it).
-  installerExe ? null,
+  fetchurl,
 }:
 let
   pname = "wispr-flow";
-  version = "1.6.774+criomos.1";
+  version = "1.6.774+criomos.2";
   installerSha256 = "fd30ef74f10348241e4a64ab4fc6619084ec5b7108cdc6444c3c290620861beb";
 
   #============================================================================
-  # Source: the user-supplied Wispr Flow Windows installer (a Squirrel .exe).
+  # Source: the official, immutable Wispr Flow Windows installer (Squirrel .exe).
   #
-  # This build NEVER fetches the proprietary app — you provide the installer you
-  # obtained yourself, mirroring `build.sh --exe`. Supply it either way:
-  #
-  #   * impure env var (the flake default):
-  #       WISPR_FLOW_EXE="/abs/path/Wispr Flow Setup-v1.5.619.exe" \
-  #         nix build .#wispr-flow-fhs --impure
-  #
-  #   * package override (overlay / non-flake callers):
-  #       wispr-flow.override { installerExe = /abs/path/to/Setup.exe; }
+  # The package owns its installer.  No caller can override it with unverified
+  # local bytes, which keeps the exact audited payload in the package closure.
   #
   # Wispr ships only a win32/x64 installer (no win32/arm64 variant is known), so
   # the aarch64 build reuses the same x64 .exe — the payload is the
   # cross-platform Electron app, and the native Rust helper is built per-arch by
   # rustPlatform below, so one .exe drives both outputs.
   #============================================================================
-  installerEnv = builtins.getEnv "WISPR_FLOW_EXE";
-  resolvedExe =
-    if installerExe != null then installerExe
-    else if installerEnv != "" then /. + installerEnv
-    else throw ''
-      wispr-flow: no installer supplied. This build never downloads the
-      proprietary Wispr Flow app — provide the Setup .exe you obtained yourself:
-
-        WISPR_FLOW_EXE="/abs/path/Wispr Flow Setup-v${version}.exe" \
-          nix build .#wispr-flow-fhs --impure
-
-      or override the package:
-        wispr-flow.override { installerExe = /abs/path/to/Setup.exe; }
-    '';
-
-  # Copy the supplied .exe into the store under a fixed, space-free name so the
-  # derivation hash is independent of where the file lived on disk.
-  src = builtins.path {
-    path = resolvedExe;
-    name = "wispr-flow-setup-${version}.exe";
+  src = fetchurl {
+    url = "https://dl.wisprflow.com/wispr-flow/win32/x64/Wispr%20Flow%20Setup-v1.6.774.exe";
+    hash = "sha256-/TDvdPEDSCQeSmSrT8ZhkITsW3EIzcZETDwpBiCGG+s=";
   };
 
   # Repo root, used to reach scripts/ from the build.
@@ -136,7 +110,12 @@ stdenvNoCC.mkDerivation {
     export HOME=$TMPDIR
 
     #-- 1. Extract the Squirrel .exe -> *-full.nupkg -> Electron payload -----
-    test "$(sha256sum "$src" | cut -d' ' -f1)" = "${installerSha256}"
+    actual_installer_sha256=$(sha256sum "$src" | cut -d' ' -f1)
+    [[ "$actual_installer_sha256" = "${installerSha256}" ]] || {
+      echo "unexpected Wispr installer SHA-256: $actual_installer_sha256" >&2
+      exit 1
+    }
+    echo "verified Wispr installer SHA-256: $actual_installer_sha256"
     7z x -y "$src" -oinstaller >/dev/null
     nupkg=$(find installer -iname '*-full.nupkg' | head -1)
     [[ -n "$nupkg" ]] || { echo "no *-full.nupkg in installer" >&2; exit 1; }

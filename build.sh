@@ -193,17 +193,11 @@ run_packaging() {
 			say 'Nix build'
 			cat <<'NIXMSG'
 The Nix package is built straight from the flake, not through build.sh. It
-never fetches the proprietary app -- point it at the installer .exe you
-obtained yourself via WISPR_FLOW_EXE (needs --impure):
+fetches the official immutable 1.6.774 installer with its fixed SHA-256:
 
-    WISPR_FLOW_EXE="/path/Wispr Flow Setup-v1.6.774.exe" \
-      nix build .#wispr-flow-fhs --impure   # recommended (glibc FHS wrapper)
+    nix build .#wispr-flow-fhs   # recommended (glibc FHS wrapper)
 
-    WISPR_FLOW_EXE="/path/Wispr Flow Setup-v1.6.774.exe" \
-      nix build .#wispr-flow --impure       # bare derivation (no FHS loader)
-
-Overlay/non-flake callers can instead override:
-    wispr-flow.override { installerExe = /path/to/Setup.exe; }
+    nix build .#wispr-flow       # bare derivation (no FHS loader)
 NIXMSG
 			return 0
 			;;

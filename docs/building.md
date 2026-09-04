@@ -48,7 +48,13 @@ By default `build.sh` resolves and downloads the installer from Wispr's official
 endpoint (`scripts/setup/resolve-installer-url.sh`) — the same path CI uses. The
 proprietary installer is never committed to the repo.
 
-To build against a specific installer instead, grab
+### Nix package source
+
+The Nix package always fetches the official immutable `1.6.774` installer with
+its fixed SHA-256. `nix build .#wispr-flow-fhs` needs neither `--impure` nor a
+local installer override; Nix rejects bytes that do not match the audited hash.
+
+For the non-Nix deb, rpm, or AppImage formats, to build against a specific installer, grab
 `Wispr Flow Setup-v<version>.exe` from [wisprflow.ai](https://wisprflow.ai) and
 pass it with `--exe`. The pinned version is **1.6.774** (set in `build.sh` as
 `APP_VERSION`); the auto-download verifies the upstream latest matches it and

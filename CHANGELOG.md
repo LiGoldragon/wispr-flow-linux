@@ -17,6 +17,8 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 - Bundled Wispr Flow pin updated to audited signed upstream `1.6.774`
   (`fd30ef74f10348241e4a64ab4fc6619084ec5b7108cdc6444c3c290620861beb`).
+- Nix package `1.6.774+criomos.2` now owns the immutable signed installer;
+  caller-provided installer paths and `WISPR_FLOW_EXE` are no longer accepted.
 
 ## [v1.0.3] - 2026-06-11
 

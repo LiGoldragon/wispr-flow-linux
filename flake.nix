@@ -36,10 +36,6 @@
           pkgs = pkgsFor system;
           runtimeInputs = pkgs.callPackage ./nix/runtime-inputs.nix { };
           wispr-flow = pkgs.callPackage ./nix/wispr-flow.nix { inherit runtimeInputs; };
-          signedInstaller = pkgs.fetchurl {
-            url = "https://dl.wisprflow.com/wispr-flow/win32/x64/Wispr%20Flow%20Setup-v1.6.774.exe";
-            hash = "sha256-/TDvdPEDSCQeSmSrT8ZhkITsW3EIzcZETDwpBiCGG+s=";
-          };
           wispr-flow-fhs = pkgs.callPackage ./nix/fhs.nix { inherit wispr-flow; };
         in
         {
@@ -62,19 +58,22 @@
           };
         in
         {
-          # A real derivation of the packaged archive.  Run with
-          # WISPR_FLOW_EXE=... and --impure; it executes the same extract,
-          # patch, repack, and final-archive verification path as deployment.
+          # A real package derivation. It fetches the immutable signed installer
+          # itself, then executes the extract, patch, repack, and archive
+          # verification path used for deployment.
           package-artifact = wispr-flow;
 
-          runtime-input-contract =
+          package-source-contract =
             let
               runtimeInputs = pkgs.callPackage ./nix/runtime-inputs.nix { };
               wispr-flow = pkgs.callPackage ./nix/wispr-flow.nix { inherit runtimeInputs; };
+              packageArgs = builtins.functionArgs (import ./nix/wispr-flow.nix);
             in
-            assert builtins.hasAttr "runtimeInputs" (builtins.functionArgs (import ./nix/wispr-flow.nix));
+            assert builtins.hasAttr "runtimeInputs" packageArgs;
+            assert builtins.hasAttr "fetchurl" packageArgs;
+            assert !(builtins.hasAttr "installerExe" packageArgs);
             assert wispr-flow.drvPath != "";
-            pkgs.runCommand "wispr-flow-runtime-input-contract" { } ''
+            pkgs.runCommand "wispr-flow-package-source-contract" { } ''
               touch "$out"
             '';
 
