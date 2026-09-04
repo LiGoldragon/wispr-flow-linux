@@ -12,7 +12,11 @@ if grep -q "$MARKER" "$BUNDLE"; then
     && grep -q 'WISPR_LINUX_STATUS_BOOTSTRAP' "$BUNDLE" \
     && grep -q 'WISPR_LINUX_STATUS_PUBLICATION' "$BUNDLE" \
     && grep -q 'WISPR_LINUX_STATUS_MODE_PUBLICATION' "$BUNDLE" \
+    && grep -q 'WISPR_LINUX_STATUS_MODE_PUBLICATION_BEGIN' "$BUNDLE" \
+    && grep -q 'WISPR_LINUX_STATUS_MODE_PUBLICATION_END' "$BUNDLE" \
     && grep -q 'WISPR_LINUX_STATUS_CONTROL' "$BUNDLE" \
+    && grep -q 'WISPR_LINUX_STATUS_CONTROL_BEGIN' "$BUNDLE" \
+    && grep -q 'WISPR_LINUX_STATUS_CONTROL_END' "$BUNDLE" \
     && grep -q 'WISPR_LINUX_STATUS_WINDOW_SUPPRESSED' "$BUNDLE" \
     && grep -q 'WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED' "$BUNDLE" \
     && grep -qF 'if("linux"===process.platform)return;/*WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED*/const t=' "$BUNDLE" \
@@ -52,7 +56,10 @@ status_assignment = 'const i=p.ZZ.status;p.ZZ.status=e,p.ZZ.statusLastUpdatedTim
 data = replace_once(status_assignment, 'const i=p.ZZ.status;p.ZZ.status=e,p.ZZ.statusLastUpdatedTime=Date.now(),globalThis.__wisprStatusBridge?.publish(globalThis.__wisprStatusSnapshot(e))/*WISPR_LINUX_STATUS_PUBLICATION*/;', "status publication")
 
 hands_free = 'const Q=()=>{try{const e=S.ZZ.status;'
-control_hook = '''globalThis.__wisprStatusBridge?.setToggleHandsFree(async()=>{const e=S.ZZ.status;if(e===c._W.Idle||e===c._W.Dismissed)return await(0,z.Qw)(c.SB.Deeplink),{hands_free:!0};if(e===c._W.Listening&&S.ZZ.isLocked)return await(0,z.US)(c.SB.Deeplink),{hands_free:!1};return{ok:!1,error:"not_toggleable"}});/*WISPR_LINUX_STATUS_CONTROL*/const Q=()=>{try{const e=S.ZZ.status;'''
+# The paired markers delimit standalone expressions in the signed payload.  The
+# packaged-bundle bootstrap check executes those exact slices without inventing
+# minified exports such as c.B8.
+control_hook = '''/*WISPR_LINUX_STATUS_CONTROL_BEGIN*/globalThis.__wisprStatusBridge?.setToggleHandsFree(async()=>{const e=S.ZZ.status;if(e===c._W.Idle||e===c._W.Dismissed)return await(0,z.Qw)(c.SB.Deeplink),{hands_free:!0};if(e===c._W.Listening&&S.ZZ.isLocked)return await(0,z.US)(c.SB.Deeplink),{hands_free:!1};return{ok:!1,error:"not_toggleable"}});/*WISPR_LINUX_STATUS_CONTROL_END*//*WISPR_LINUX_STATUS_CONTROL*/const Q=()=>{try{const e=S.ZZ.status;'''
 data = replace_once(hands_free, control_hook, "actual hands-free action")
 
 lock_mutator = re.compile(r'S\.ZZ\.isLocked=(?P<value>[^,;]+)(?P<delimiter>[,;])')
@@ -64,9 +71,9 @@ if len(matches) != 1:
     )
 data = lock_mutator.sub(
     lambda match: match.group(0)[:-1]
-    + ',globalThis.__wisprStatusBridge?.publish('
+    + ',/*WISPR_LINUX_STATUS_MODE_PUBLICATION_BEGIN*/globalThis.__wisprStatusBridge?.publish('
     + 'globalThis.__wisprStatusSnapshot(S.ZZ.status))'
-    + '/*WISPR_LINUX_STATUS_MODE_PUBLICATION*/'
+    + '/*WISPR_LINUX_STATUS_MODE_PUBLICATION_END*//*WISPR_LINUX_STATUS_MODE_PUBLICATION*/'
     + match.group("delimiter"),
     data,
     count=1,
@@ -103,7 +110,11 @@ if ! grep -q "$MARKER" "$BUNDLE" \
   || ! grep -q 'WISPR_LINUX_STATUS_BOOTSTRAP' "$BUNDLE" \
   || ! grep -q 'WISPR_LINUX_STATUS_PUBLICATION' "$BUNDLE" \
   || ! grep -q 'WISPR_LINUX_STATUS_MODE_PUBLICATION' "$BUNDLE" \
+  || ! grep -q 'WISPR_LINUX_STATUS_MODE_PUBLICATION_BEGIN' "$BUNDLE" \
+  || ! grep -q 'WISPR_LINUX_STATUS_MODE_PUBLICATION_END' "$BUNDLE" \
   || ! grep -q 'WISPR_LINUX_STATUS_CONTROL' "$BUNDLE" \
+  || ! grep -q 'WISPR_LINUX_STATUS_CONTROL_BEGIN' "$BUNDLE" \
+  || ! grep -q 'WISPR_LINUX_STATUS_CONTROL_END' "$BUNDLE" \
   || ! grep -q 'WISPR_LINUX_STATUS_WINDOW_SUPPRESSED' "$BUNDLE" \
   || ! grep -q 'WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED' "$BUNDLE"; then
   cp -p "$BEFORE" "$BUNDLE"

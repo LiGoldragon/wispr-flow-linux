@@ -18,7 +18,7 @@
 	bash "$BATS_TEST_DIRNAME/../scripts/patches/linux-status-bridge.sh" "$main"
 }
 
-@test "signed-payload control hook toggles only the audited states and publishes lock mode" {
+@test "fixture control hook covers the state matrix and lock publication splice" {
 	local fixture="$BATS_TEST_TMPDIR/status-control.js"
 	local driver="$BATS_TEST_TMPDIR/run-status-control.js"
 	cat > "$fixture" <<'JS'
