@@ -47,12 +47,19 @@ function next(path) {
 (async () => {
   await bridge.ready;
   assert.equal(fs.statSync(bridge.statusPath).mode & 0o777, 0o600);
+  const subscriber = net.connect(bridge.statusPath);
+  let lines = "";
+  const transition = new Promise((resolve, reject) => { subscriber.on("data", chunk => { lines += chunk; const packets = lines.trim().split("\n"); if (packets.length === 2) resolve([JSON.parse(packets[0]), JSON.parse(packets[1])]); }); subscriber.on("error", reject); });
   const initial = await next(bridge.statusPath);
   assert.equal(initial.contract, "com.criomos.wispr.status.v1");
   assert.equal(initial.type, "snapshot");
   assert.equal(initial.state, "idle");
   assert.equal(initial.hands_free, false);
   bridge.publish({ state: "recording", hands_free: true });
+  const [subscriberInitial, subscriberTransition] = await transition;
+  assert.equal(subscriberInitial.state, "idle");
+  assert.equal(subscriberTransition.state, "recording");
+  subscriber.destroy();
   const updated = await next(bridge.statusPath);
   assert.equal(updated.state, "recording");
   assert.equal(updated.hands_free, true);
@@ -82,6 +89,7 @@ const bridge = startStatusBridge({
 });
 bridge.setToggleHandsFree(async () => {
   actions += 1;
+  bridge.publish({ state: "recording", hands_free: true });
   return { hands_free: true };
 });
 
@@ -115,6 +123,36 @@ bridge.setToggleHandsFree(async () => {
   });
   await bridge.close();
 })().catch((error) => { console.error(error); process.exitCode = 1; });
+NODE
+	[[ $status -eq 0 ]]
+}
+
+@test "lifecycle mapping makes Listening recording and unknown states errors" {
+	run node - <<'NODE'
+const assert = require("node:assert/strict");
+const { mapWisprState } = require(process.env.BRIDGE);
+assert.deepEqual(mapWisprState("listening"), {state:"recording"});
+assert.deepEqual(mapWisprState("initializing"), {state:"recording"});
+assert.deepEqual(mapWisprState("processing"), {state:"transcribing"});
+assert.deepEqual(mapWisprState("testing"), {state:"error",error:"unknown_lifecycle_state"});
+NODE
+	[[ $status -eq 0 ]]
+}
+
+@test "a second bridge never steals live sockets or unlinks its owner" {
+	run node - <<'NODE'
+const assert = require("node:assert/strict"), fs=require("node:fs");
+const {startStatusBridge}=require(process.env.BRIDGE); const runtime=`${process.env.TEST_TMP}/runtime`; fs.mkdirSync(runtime,{mode:0o700});
+(async()=>{const first=startStatusBridge({runtimeDir:runtime}); await first.ready; const second=startStatusBridge({runtimeDir:runtime}); await assert.rejects(second.ready,/live status bridge/); assert.equal(fs.existsSync(first.statusPath),true); await first.close();})().catch(e=>{console.error(e);process.exitCode=1});
+NODE
+	[[ $status -eq 0 ]]
+}
+
+@test "CLI times out and rejects a peer that closes before replying" {
+	run node - <<'NODE'
+const assert=require("node:assert/strict"),fs=require("node:fs"),net=require("node:net"),{spawn}=require("node:child_process");
+const runtime=`${process.env.TEST_TMP}/runtime`;fs.mkdirSync(runtime,{mode:0o700});const p=`${runtime}/wispr-flow-control-v1.sock`;
+const server=net.createServer(s=>s.end());server.listen(p,()=>{const child=spawn(process.execPath,[process.env.CLI,"toggle-hands-free"],{env:{...process.env,XDG_RUNTIME_DIR:runtime,WISPR_FLOW_STATUS_TIMEOUT_MS:"50"}});let err="";child.stderr.on("data",d=>err+=d);child.on("close",code=>server.close(()=>{assert.equal(code,1);assert.match(err,/closed without a reply/)}));});
 NODE
 	[[ $status -eq 0 ]]
 }

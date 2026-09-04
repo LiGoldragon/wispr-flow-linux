@@ -73,7 +73,7 @@ use); the repo never bundles or commits it. Build a package with:
 ./build.sh --build rpm
 
 # ...or point it at an installer you already have
-./build.sh --build rpm --exe ~/Downloads/"Wispr Flow Setup-v1.5.695.exe"
+./build.sh --build rpm --exe ~/Downloads/"Wispr Flow Setup-v1.6.774.exe"
 ```
 
 `--exe` is optional: without it, `build.sh` fetches the latest installer and
