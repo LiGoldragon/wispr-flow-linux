@@ -18,6 +18,9 @@
 	grep -qF 'WISPR_LINUX_STATUS_BRIDGE' "$main"
 	grep -qF 'WISPR_LINUX_STATUS_WINDOW_SUPPRESSED' "$main"
 	grep -qF 'globalThis.__wisprStatusBridge?.setToggleHandsFree' "$main"
+	grep -qF 'await(0,z.Qw)(c.SB.Deeplink)' "$main"
+	grep -qF 'await(0,z.US)(c.SB.Deeplink)' "$main"
+	bash "$BATS_TEST_DIRNAME/../scripts/patches/linux-status-bridge.sh" "$main"
 }
 
 @test "status patch rejects a one-line bundle containing every marker" {
@@ -25,4 +28,17 @@
 	printf '%s\n' '/*WISPR_LINUX_STATUS_BRIDGE WISPR_LINUX_STATUS_LIFECYCLE WISPR_LINUX_STATUS_PUBLICATION WISPR_LINUX_STATUS_CONTROL WISPR_LINUX_STATUS_WINDOW_SUPPRESSED*/' > "$fake"
 	run bash "$BATS_TEST_DIRNAME/../scripts/patches/linux-status-bridge.sh" "$fake"
 	[[ $status -ne 0 ]]
+}
+
+@test "status patch leaves its current input intact when a later anchor fails" {
+	[[ -n ${WISPR_FLOW_AUDIT_APP:-} && -f "$WISPR_FLOW_AUDIT_APP/.webpack/main/index.js" ]] || skip 'set WISPR_FLOW_AUDIT_APP to verified extracted 1.6.774 app'
+	local fake="$BATS_TEST_TMPDIR/rollback.js"
+	cp "$WISPR_FLOW_AUDIT_APP/.webpack/main/index.js" "$fake"
+	[[ ! -f "$WISPR_FLOW_AUDIT_APP/.webpack/main/index.js.orig" ]] || cp "$WISPR_FLOW_AUDIT_APP/.webpack/main/index.js.orig" "$fake"
+	sed -i 's/y.H8&&!J&&F.setEnabled(!0),e.showInactive(),y.H8&&/missing-status-window-anchor/' "$fake"
+	local before
+	before=$(sha256sum "$fake")
+	run bash "$BATS_TEST_DIRNAME/../scripts/patches/linux-status-bridge.sh" "$fake"
+	[[ $status -ne 0 ]]
+	[[ "$before" == "$(sha256sum "$fake")" ]]
 }

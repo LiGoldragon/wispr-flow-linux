@@ -15,6 +15,7 @@ if grep -q "$MARKER" "$BUNDLE"; then
     && grep -qF 'globalThis.__wisprStatusBridge?.publish(globalThis.__wisprStatusSnapshot(e))' "$BUNDLE" \
     && grep -qF 'globalThis.__wisprStatusBridge?.setToggleHandsFree(async()=>' "$BUNDLE" \
     && grep -qF 'await(0,z.Qw)(c.SB.Deeplink)' "$BUNDLE" \
+    && grep -qF 'await(0,z.US)(c.SB.Deeplink)' "$BUNDLE" \
     && grep -qF '"linux"!==process.platform&&e.showInactive()' "$BUNDLE" \
     && node --check "$BUNDLE" \
     && { echo "Already patched ($MARKER)"; exit 0; }

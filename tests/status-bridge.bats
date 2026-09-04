@@ -139,6 +139,25 @@ NODE
 	[[ $status -eq 0 ]]
 }
 
+@test "control accepts the authoritative transition published synchronously by its action" {
+	run node - <<'NODE'
+const assert=require("node:assert/strict"),fs=require("node:fs"),net=require("node:net"),{startStatusBridge}=require(process.env.BRIDGE);
+const runtime=`${process.env.TEST_TMP}/runtime`;fs.mkdirSync(runtime,{mode:0o700}); const bridge=startStatusBridge({runtimeDir:runtime,controlTimeoutMs:40,snapshot:()=>({state:"idle",hands_free:false})});
+bridge.setToggleHandsFree(async()=>{bridge.publish({state:"recording",hands_free:true});return {hands_free:true}});
+(async()=>{await bridge.ready;const reply=await new Promise((resolve,reject)=>{const s=net.connect(bridge.controlPath);let b="";s.on("connect",()=>s.write('{"contract":"com.criomos.wispr.status.v1","type":"control","id":"sync","command":"toggle_hands_free"}\n'));s.on("data",d=>{b+=d;const n=b.indexOf("\n");if(n>=0){s.destroy();resolve(JSON.parse(b.slice(0,n)))}});s.on("error",reject)});assert.equal(reply.ok,true);await bridge.close()})().catch(e=>{console.error(e);process.exitCode=1});
+NODE
+	[[ $status -eq 0 ]]
+}
+
+@test "bridge close destroys incomplete control clients before server shutdown" {
+	run node - <<'NODE'
+const assert=require("node:assert/strict"),fs=require("node:fs"),net=require("node:net"),{startStatusBridge}=require(process.env.BRIDGE);
+const runtime=`${process.env.TEST_TMP}/runtime`;fs.mkdirSync(runtime,{mode:0o700});const bridge=startStatusBridge({runtimeDir:runtime});
+(async()=>{await bridge.ready;const client=net.connect(bridge.controlPath);client.on("error",()=>{});await new Promise(r=>client.once("connect",r));client.write('{"contract":');const closed=new Promise(r=>client.once("close",r));await Promise.race([bridge.close(),new Promise((_,reject)=>setTimeout(()=>reject(new Error("close hung")),100))]);await closed;assert.equal(client.destroyed,true)})().catch(e=>{console.error(e);process.exitCode=1});
+NODE
+	[[ $status -eq 0 ]]
+}
+
 @test "control rejects action failure and pre-existing target without a new transition" {
 	run node - <<'NODE'
 const assert=require("node:assert/strict"),fs=require("node:fs"),net=require("node:net"),{startStatusBridge}=require(process.env.BRIDGE);
