@@ -9,6 +9,7 @@ BUNDLE="${1:-}"
 MARKER="WISPR_LINUX_STATUS_BRIDGE"
 if grep -q "$MARKER" "$BUNDLE"; then
   grep -q 'WISPR_LINUX_STATUS_LIFECYCLE' "$BUNDLE" \
+    && grep -q 'WISPR_LINUX_STATUS_BOOTSTRAP' "$BUNDLE" \
     && grep -q 'WISPR_LINUX_STATUS_PUBLICATION' "$BUNDLE" \
     && grep -q 'WISPR_LINUX_STATUS_CONTROL' "$BUNDLE" \
     && grep -q 'WISPR_LINUX_STATUS_WINDOW_SUPPRESSED' "$BUNDLE" \
@@ -37,8 +38,11 @@ def replace_once(anchor, replacement, label):
     return data.replace(anchor, replacement, 1)
 
 status_setter = 'qe=(e,t=!0,n={})=>{'
-bridge_bootstrap = '''qe=(e,t=!0,n={})=>{globalThis.__wisprStatusSnapshot??=(e=>{const t=String(e).toLowerCase(),n="idle"===t||"dismissed"===t?"idle":"initializing"===t||"listening"===t?"recording":"stopping"===t||"processing"===t||"retrying"===t?"transcribing":"error"===t?"error":"error";return{state:n,hands_free:!!p.ZZ.isLocked,..."error"===n&&"error"!==t?{error:"unknown_lifecycle_state"}:{}}}),globalThis.__wisprStatusBridge??=("linux"===process.platform?(()=>{try{return require(require("path").resolve(process.resourcesPath,"wispr-status-bridge.cjs")).startStatusBridge({snapshot:()=>globalThis.__wisprStatusSnapshot(p.ZZ.status)})}catch(e){return null}})():null);/*WISPR_LINUX_STATUS_BRIDGE WISPR_LINUX_STATUS_LIFECYCLE*/'''
-data = replace_once(status_setter, bridge_bootstrap, "authoritative status setter")
+data = replace_once(status_setter, 'qe=(e,t=!0,n={})=>{/*WISPR_LINUX_STATUS_LIFECYCLE*/', "authoritative status setter")
+
+startup = 'e.app.whenReady().then(()=>(async()=>{})()).catch(e=>{n().warn("Local dev auto sign-in failed",{customAttributes:{error:String(e)}})})'
+bootstrap = '''e.app.whenReady().then(()=>{if("linux"===process.platform)try{globalThis.__wisprStatusSnapshot??=(e=>{const t=String(e).toLowerCase(),n="idle"===t||"dismissed"===t?"idle":"initializing"===t||"listening"===t?"recording":"stopping"===t||"processing"===t||"retrying"===t?"transcribing":"error"===t?"error":"error";return{state:n,hands_free:!!S.ZZ.isLocked,..."error"===n&&"error"!==t?{error:"unknown_lifecycle_state"}:{}}}),globalThis.__wisprStatusBridge??=require(require("path").resolve(process.resourcesPath,"wispr-status-bridge.cjs")).startStatusBridge({snapshot:()=>globalThis.__wisprStatusSnapshot(S.ZZ.status)})}catch(e){n().error("Wispr status bridge startup failed",{customAttributes:{component:"status_bridge"}})}}).catch(e=>{n().warn("Local dev auto sign-in failed",{customAttributes:{error:String(e)}})})/*WISPR_LINUX_STATUS_BRIDGE WISPR_LINUX_STATUS_BOOTSTRAP*/'''
+data = replace_once(startup, bootstrap, "unconditional Electron main startup")
 
 status_assignment = 'const i=p.ZZ.status;p.ZZ.status=e,p.ZZ.statusLastUpdatedTime=Date.now();'
 data = replace_once(status_assignment, 'const i=p.ZZ.status;p.ZZ.status=e,p.ZZ.statusLastUpdatedTime=Date.now(),globalThis.__wisprStatusBridge?.publish(globalThis.__wisprStatusSnapshot(e))/*WISPR_LINUX_STATUS_PUBLICATION*/;', "status publication")
@@ -55,6 +59,7 @@ PY
 
 if ! grep -q "$MARKER" "$BUNDLE" \
   || ! grep -q 'WISPR_LINUX_STATUS_LIFECYCLE' "$BUNDLE" \
+  || ! grep -q 'WISPR_LINUX_STATUS_BOOTSTRAP' "$BUNDLE" \
   || ! grep -q 'WISPR_LINUX_STATUS_PUBLICATION' "$BUNDLE" \
   || ! grep -q 'WISPR_LINUX_STATUS_CONTROL' "$BUNDLE" \
   || ! grep -q 'WISPR_LINUX_STATUS_WINDOW_SUPPRESSED' "$BUNDLE"; then

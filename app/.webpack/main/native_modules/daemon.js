@@ -1,0 +1,1 @@
+const ScheduledTask=require("../scheduled-task");let scheduledTask;function register(e){const s=require(e.path);scheduledTask=new ScheduledTask(e.cron,s.task,e.options),scheduledTask.on("task-done",e=>{process.send({type:"task-done",result:e})}),process.send({type:"registred"})}process.on("message",e=>{if("register"===e.type)return register(e)});

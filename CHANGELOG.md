@@ -22,6 +22,8 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Fixed
 
+- Nix package `1.6.774+criomos.4` starts the status bridge at Electron main
+  readiness instead of waiting for the first dictation lifecycle transition.
 - Nix package `1.6.774+criomos.3` restores the app-owned status bridge when
   Electron loses `XDG_RUNTIME_DIR` inside the FHS wrapper.
 

@@ -4,7 +4,8 @@ Linux packages expose `com.criomos.wispr.status.v1` over private Unix sockets
 under `$XDG_RUNTIME_DIR`: `wispr-flow-status-v1.sock` and
 `wispr-flow-control-v1.sock` (mode `0600`). If the FHS Electron child loses the
 variable, the app recovers the same user-owned private runtime directory at
-`/run/user/<uid>`. The app owns both endpoints; no helper acknowledgement,
+`/run/user/<uid>`. Electron starts the app-owned bridge once at main-process
+ready, before any dictation lifecycle transition. No helper acknowledgement,
 keyboard event, transcript, or credential is exposed.
 
 Every status client immediately receives a newline-delimited JSON `snapshot`:
