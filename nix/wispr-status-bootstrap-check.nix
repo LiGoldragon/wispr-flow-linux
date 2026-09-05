@@ -20,27 +20,95 @@ runCommand "wispr-flow-status-bootstrap"
     const assert = require("node:assert/strict");
     const fs = require("node:fs");
     const Module = require("node:module");
+    const net = require("node:net");
     const path = require("node:path");
     const vm = require("node:vm");
 
+    let bridge;
+    const requestControl = (id) => new Promise((resolve, reject) => {
+      const socket = net.connect(bridge.controlPath);
+      let buffer = "";
+      const timer = setTimeout(() => {
+        socket.destroy();
+        reject(new Error(`control request $${id} timed out`));
+      // The bridge's action-to-state confirmation window is 3000ms; the client
+      // deadline must exceed it while still bounding a stalled socket.
+      }, 5000);
+      const finish = callback => value => {
+        clearTimeout(timer);
+        socket.destroy();
+        callback(value);
+      };
+      socket.on("connect", () => socket.write(JSON.stringify({
+        contract: "com.criomos.wispr.status.v2",
+        type: "control",
+        id,
+        command: "toggle_hands_free",
+      }) + "\n"));
+      socket.on("data", chunk => {
+        buffer += chunk;
+        const newline = buffer.indexOf("\n");
+        if (newline >= 0) finish(resolve)(JSON.parse(buffer.slice(0, newline)));
+      });
+      socket.on("error", finish(reject));
+    });
+
     (async () => {
+      try {
       const mainPath = process.env.WISPR_STATUS_MAIN;
       const source = fs.readFileSync(mainPath, "utf8");
       const start = source.indexOf("e.app.whenReady().then(()=>{");
       const end = source.indexOf(",(0,Hn.xS)()", start);
       assert.ok(start >= 0 && end > start, "missing executable main startup path");
 
+      const controlCalls = [];
       const mainContext = {
         Promise,
         S: { ZZ: { status: "Idle", isLocked: false } },
+        c: {
+          _W: { Idle: "Idle", Dismissed: "Dismissed", Listening: "Listening" },
+          SB: { Deeplink: "wispr-flow:" },
+        },
         e: { app: { whenReady: () => Promise.resolve() } },
         n: () => ({ error: () => {}, warn: () => {} }),
         process: { platform: "linux", resourcesPath: process.env.WISPR_STATUS_RESOURCES },
         require: Module.createRequire(mainPath),
       };
+      mainContext.z = {
+        Qw: async () => {
+          controlCalls.push("start");
+          mainContext.S.ZZ.isLocked = true;
+          mainContext.__wisprStatusBridge.publish(
+            mainContext.__wisprStatusSnapshot(mainContext.S.ZZ.status),
+          );
+        },
+        US: async () => {
+          controlCalls.push("stop");
+          mainContext.S.ZZ.isLocked = false;
+          mainContext.__wisprStatusBridge.publish(
+            mainContext.__wisprStatusSnapshot(mainContext.S.ZZ.status),
+          );
+        },
+      };
       vm.createContext(mainContext);
+      const controlBegin = "/*WISPR_LINUX_STATUS_CONTROL_BEGIN*/";
+      const controlEnd = "/*WISPR_LINUX_STATUS_CONTROL_END*/";
+      assert.equal(source.split(controlBegin).length - 1, 1,
+        "one packaged control registration");
+      assert.equal(source.split(controlEnd).length - 1, 1,
+        "one packaged control registration end");
+      const controlRegistration = source.slice(
+        source.indexOf(controlBegin) + controlBegin.length,
+        source.indexOf(controlEnd),
+      );
+      // The application reaches this real hands-free path before Electron
+      // readiness. It must retain the action for bootstrap instead of losing it
+      // through an optional chain while the bridge does not yet exist.
+      vm.runInContext(controlRegistration, mainContext);
+      assert.equal(typeof mainContext.__wisprStatusToggleHandsFree, "function",
+        "packaged hands-free path did not retain its control action");
       await vm.runInContext(source.slice(start, end), mainContext);
-      const bridge = mainContext.__wisprStatusBridge;
+      bridge = mainContext.__wisprStatusBridge;
       assert.ok(bridge, "main initialization did not start the bridge");
       await bridge.ready;
       for (const socketPath of [bridge.statusPath, bridge.controlPath]) {
@@ -48,10 +116,24 @@ runCommand "wispr-flow-status-bootstrap"
         assert.equal(stat.isSocket(), true);
         assert.equal(stat.mode & 0o777, 0o600);
       }
-      await bridge.close();
-      for (const socketPath of [bridge.statusPath, bridge.controlPath]) {
-        assert.equal(fs.existsSync(socketPath), false);
-      }
+      const controlReply = await requestControl("packaged-bootstrap-start");
+      assert.deepEqual({ ...controlReply }, {
+        contract: "com.criomos.wispr.status.v2",
+        type: "control_result",
+        id: "packaged-bootstrap-start",
+        ok: true,
+        hands_free: true,
+      });
+      mainContext.S.ZZ.status = "Listening";
+      const stopReply = await requestControl("packaged-bootstrap-stop");
+      assert.deepEqual({ ...stopReply }, {
+        contract: "com.criomos.wispr.status.v2",
+        type: "control_result",
+        id: "packaged-bootstrap-stop",
+        ok: true,
+        hands_free: false,
+      });
+      assert.deepEqual(controlCalls, ["start", "stop"]);
 
       const workletPath = path.join(
         path.dirname(path.dirname(mainPath)),
@@ -234,6 +316,12 @@ runCommand "wispr-flow-status-bootstrap"
         state: "Error",
         hands_free: true,
       });
+      } finally {
+        if (bridge) await bridge.close();
+      }
+      for (const socketPath of bridge ? [bridge.statusPath, bridge.controlPath] : []) {
+        assert.equal(fs.existsSync(socketPath), false);
+      }
     })().catch(error => { console.error(error); process.exitCode = 1; });
     NODE
 

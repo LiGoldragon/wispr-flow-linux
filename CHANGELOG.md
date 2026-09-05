@@ -26,6 +26,8 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   sequence, so status heartbeats cannot impersonate fresh microphone samples.
 - Nix package `1.6.774+criomos.9` bounds scalar meter emission to recorder
   chunks and normalizes non-finite sample contributions to scalar zero.
+- Nix package `1.6.774+criomos.10` registers its v2 control action during
+  Electron-main bridge startup, before clients can reach the control socket.
 
 ### Fixed
 
