@@ -79,11 +79,15 @@ runCommand "wispr-flow-status-bootstrap"
       assert.deepEqual({ ...posted.pop() }, {
         type: "wispr-flow-status-meter-v2", capture: true, rms: 0,
       });
-      for (const [sample, expected] of [
-        [0, 0], [0.5, 0.5], [Math.sqrt(1 / 3), Math.sqrt(1 / 3)], [2, 1],
+      for (const [samples, expected] of [
+        [[0, 1], Math.sqrt(0.5)],
+        [[0, 0.5, 0.5, 0.5], Math.sqrt(0.1875)],
+        [[-0.5, 0.5], 0.5],
+        [[NaN, 0.5], 0],
+        [[2], 1],
       ]) {
         posted.length = 0;
-        recorder.process([[Float32Array.from({ length: 640 }, () => sample)]]);
+        recorder.process([[Float32Array.from({ length: 640 }, (_, index) => samples[index % samples.length])]]);
         const meter = posted.find(value => value?.type === "wispr-flow-status-meter-v2");
         assert.ok(meter, "actual recorder worklet did not emit a scalar meter");
         assert.equal(meter.capture, true);
@@ -143,7 +147,7 @@ runCommand "wispr-flow-status-bootstrap"
       }), true);
       assert.deepEqual(publishedMeters.map(value => ({ ...value })), [
         { capture: "available", rms: 0.5 },
-        { capture: "unavailable", rms: null },
+        { capture: "unavailable" },
       ]);
 
       const extractMarkedExpression = (begin, end, label) => {

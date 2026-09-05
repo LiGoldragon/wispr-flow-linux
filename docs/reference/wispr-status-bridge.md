@@ -13,16 +13,25 @@ show path runs and when dictation-start visibility recovery runs. Noctalia is
 the only status surface in the managed desktop integration.
 
 Every status client immediately receives a newline-delimited JSON `snapshot`:
-`contract`, `type`, `session_id`, `sequence`, `state`, `hands_free`, `capture`,
-and `rms`.
+`contract`, `type`, `session_id`, `sequence`, `state`, `hands_free`, and a
+`microphone` object.
 `state` is `idle`, `recording`, `transcribing`, or `error`; only an optional
 machine-safe error code may accompany `error`. A process start changes
 `session_id`; each lifecycle transition increments `sequence`.
 
+`microphone` has its own monotonic `sequence`, plus `capture` and `rms`.
 `capture` is `available` only while the recorder can supply a scalar meter;
 then `rms` is a finite normalized value from `0` through `1`. `rms:0` is true
 silence, whereas `capture:"unavailable",rms:null` means the capture path is
-not available. Packets never carry samples, waveform data, or FFT bins.
+not available. A valid worklet meter, including an unchanged value, advances
+`microphone.sequence`; a one-second status heartbeat repeats it unchanged. A
+new bridge session resets all ordering. Packets never carry samples, waveform
+data, or FFT bins.
+
+The recorder emits one meter for each raw transcription chunk, using the first
+channel's consumed samples. Its cadence is therefore bounded by chunking: at
+most one meter per 640 consumed samples, with a final partial chunk on stop;
+it never uses a clock to coalesce microphone activity.
 
 The bridge republishes its current snapshot every second, below the consumer's
 five-second stale threshold, so an unchanged recording remains live. The

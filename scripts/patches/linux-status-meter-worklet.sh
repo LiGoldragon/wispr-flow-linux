@@ -49,13 +49,13 @@ data = replace_once(
     'this.port.postMessage({type:"wispr-flow-status-meter-v2",capture:!0,'
     'rms:Math.min(1,Math.max(0,s))})/*WISPR_LINUX_STATUS_METER_WORKLET*/}'
     'sendCaptureUnavailable(){this.port.postMessage({type:"wispr-flow-status-meter-v2",capture:!1})}'
-    'sendDataAsKeyValue(e){let t={};for(let s=0;s<this.numInputStreams;s++)'
+    'sendDataAsKeyValue(e){let t={};this.sendMeter(this.buffer[0].subarray(0,e));for(let s=0;s<this.numInputStreams;s++)'
     't[s]=this.buffer[s].slice(0,e),this.bufferIndex[s]=0;this.port.postMessage(t)}',
     'raw transcription sender',
 )
 data = replace_once(
     'const e=s[0];this.buffer[t].set(e,this.bufferIndex[t]),this.bufferIndex[t]+=e.length',
-    'const e=s[0];this.sendMeter(e),this.buffer[t].set(e,this.bufferIndex[t]),'
+    'const e=s[0];this.buffer[t].set(e,this.bufferIndex[t]),'
     'this.bufferIndex[t]+=e.length',
     'first-channel Float32 consumption',
 )

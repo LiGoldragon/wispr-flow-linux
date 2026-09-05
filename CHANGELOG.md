@@ -22,6 +22,10 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   caller-provided installer paths and `WISPR_FLOW_EXE` are no longer accepted.
 - Nix package `1.6.774+criomos.7` replaces status contract v1 with v2 and
   carries only a normalized RMS scalar plus explicit capture availability.
+- Nix package `1.6.774+criomos.8` gives the v2 microphone scalar its own
+  sequence, so status heartbeats cannot impersonate fresh microphone samples.
+- Nix package `1.6.774+criomos.9` bounds scalar meter emission to recorder
+  chunks and normalizes non-finite sample contributions to scalar zero.
 
 ### Fixed
 
