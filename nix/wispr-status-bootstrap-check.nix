@@ -188,25 +188,49 @@ runCommand "wispr-flow-status-bootstrap"
         assert.equal(source.split(end).length - 1, 1, `one $${label} end marker`);
         return source.slice(source.indexOf(begin) + begin.length, source.indexOf(end));
       };
+      const handlerStart = hubSource.indexOf(
+        "static async handleRecorderWorkletMessage(e){",
+      );
+      const handlerEnd = hubSource.indexOf(
+        "static async condReloadAudioCxOnStop()",
+        handlerStart,
+      );
+      assert.ok(handlerStart >= 0 && handlerEnd > handlerStart,
+        "missing executable recorder worklet handler");
+      const handlerSource = hubSource.slice(handlerStart, handlerEnd).replace(
+        "static async handleRecorderWorkletMessage",
+        "async function handleRecorderWorkletMessage",
+      );
       const sent = [];
       const rendererContext = {
         window: { electron: { ipc: { send: (...args) => sent.push(args) } } },
       };
       rendererContext.globalThis = rendererContext;
       vm.createContext(rendererContext);
-      vm.runInContext(extract(hubSource,
-        "/*WISPR_LINUX_STATUS_METER_RENDERER_BEGIN*/",
-        "/*WISPR_LINUX_STATUS_METER_RENDERER_END*/", "renderer meter"), rendererContext);
-      const rendererMeter = rendererContext.__wisprStatusMeterRendererMessage;
-      assert.equal(rendererMeter({ type: "wispr-flow-status-meter-v2", capture: true, rms: 0.5 }), true);
-      assert.equal(sent.length, 1);
-      assert.equal(sent[0][0], "wispr-flow-status-meter-v2");
-      assert.deepEqual({ ...sent[0][1] }, {
-        type: "wispr-flow-status-meter-v2", capture: true, rms: 0.5,
-      });
-      assert.equal(rendererMeter({ type: "wispr-flow-status-meter-v2", capture: true, rms: Infinity }), true);
-      assert.equal(rendererMeter({ type: "wispr-flow-status-meter-v2", capture: false, rms: 0 }), true);
-      assert.equal(sent.length, 1, "invalid meter reached IPC");
+      const handleRecorderWorkletMessage = vm.runInContext(
+        `(''${handlerSource})`, rendererContext,
+      );
+      for (const [message, expected] of [
+        [
+          { type: "wispr-flow-status-meter-v2", capture: true, rms: 0.5 },
+          { type: "wispr-flow-status-meter-v2", capture: true, rms: 0.5 },
+        ],
+        [
+          { type: "wispr-flow-status-meter-v2", capture: false },
+          { type: "wispr-flow-status-meter-v2", capture: false },
+        ],
+      ]) {
+        sent.length = 0;
+        await handleRecorderWorkletMessage({ data: message });
+        assert.deepEqual(sent.map(args => [args[0], { ...args[1] }]), [
+          ["wispr-flow-status-meter-v2", expected],
+        ]);
+      }
+      sent.length = 0;
+      await handleRecorderWorkletMessage({ data: {
+        type: "wispr-flow-status-meter-v2", capture: true, rms: Infinity,
+      } });
+      assert.deepEqual(sent, [], "invalid meter reached IPC");
 
       const mainMeter = extract(source,
         "/*WISPR_LINUX_STATUS_METER_MAIN_BEGIN*/",

@@ -9,7 +9,8 @@ BUNDLE="${1:-}"
 }
 MARKER="WISPR_LINUX_STATUS_METER_RENDERER"
 if grep -q "$MARKER" "$BUNDLE"; then
-	grep -qF 'window.electron.ipc.send("wispr-flow-status-meter-v2"' "$BUNDLE" \
+	grep -qF 'static async handleRecorderWorkletMessage(e){/*WISPR_LINUX_STATUS_METER_RENDERER_BEGIN*/' "$BUNDLE" \
+		&& grep -qF 'window.electron.ipc.send("wispr-flow-status-meter-v2"' "$BUNDLE" \
 		&& node --check "$BUNDLE" \
 		&& { echo "Already patched ($MARKER)"; exit 0; }
 	echo 'ERROR: partial status meter renderer marker set' >&2
@@ -25,17 +26,17 @@ import sys
 path = sys.argv[1]
 with io.open(path, encoding="utf-8", errors="surrogateescape") as f:
     data = f.read()
-anchor = 'const t=e.data[0],a=Gm(t);'
+anchor = 'static async handleRecorderWorkletMessage(e){'
 if data.count(anchor) != 1:
     raise SystemExit(
-        f"ERROR: expected one recorder raw-chunk handler anchor, found {data.count(anchor)}."
+        f"ERROR: expected one recorder worklet handler entry, found {data.count(anchor)}."
     )
-replacement = '''/*WISPR_LINUX_STATUS_METER_RENDERER_BEGIN*/globalThis.__wisprStatusMeterRendererMessage??=(s=>{if(!s||"wispr-flow-status-meter-v2"!==s.type)return!1;if("boolean"!=typeof s.capture)return!0;if(s.capture){const e=Number(s.rms);return!Number.isFinite(e)||e<0||e>1||(window.electron.ipc.send("wispr-flow-status-meter-v2",{type:"wispr-flow-status-meter-v2",capture:!0,rms:e}),!0)}return void 0!==s.rms?!0:(window.electron.ipc.send("wispr-flow-status-meter-v2",{type:"wispr-flow-status-meter-v2",capture:!1}),!0)})/*WISPR_LINUX_STATUS_METER_RENDERER_END*/;if(globalThis.__wisprStatusMeterRendererMessage(e.data))return;/*WISPR_LINUX_STATUS_METER_RENDERER*/const t=e.data[0],a=Gm(t);'''
+replacement = '''static async handleRecorderWorkletMessage(e){/*WISPR_LINUX_STATUS_METER_RENDERER_BEGIN*/globalThis.__wisprStatusMeterRendererMessage??=(s=>{if(!s||"wispr-flow-status-meter-v2"!==s.type)return!1;if("boolean"!=typeof s.capture)return!0;if(s.capture){const e=Number(s.rms);return!Number.isFinite(e)||e<0||e>1||(window.electron.ipc.send("wispr-flow-status-meter-v2",{type:"wispr-flow-status-meter-v2",capture:!0,rms:e}),!0)}return void 0!==s.rms?!0:(window.electron.ipc.send("wispr-flow-status-meter-v2",{type:"wispr-flow-status-meter-v2",capture:!1}),!0)})/*WISPR_LINUX_STATUS_METER_RENDERER_END*/;if(globalThis.__wisprStatusMeterRendererMessage(e.data))return;/*WISPR_LINUX_STATUS_METER_RENDERER*/'''
 with io.open(path, "w", encoding="utf-8", errors="surrogateescape") as f:
     f.write(data.replace(anchor, replacement, 1))
 PY
 
-if ! grep -q 'WISPR_LINUX_STATUS_METER_RENDERER' "$BUNDLE" \
+if ! grep -qF 'static async handleRecorderWorkletMessage(e){/*WISPR_LINUX_STATUS_METER_RENDERER_BEGIN*/' "$BUNDLE" \
 	|| ! grep -qF 'window.electron.ipc.send("wispr-flow-status-meter-v2"' "$BUNDLE" \
 	|| ! node --check "$BUNDLE"; then
 	cp -p "$BEFORE" "$BUNDLE"

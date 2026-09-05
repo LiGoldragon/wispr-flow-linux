@@ -28,6 +28,8 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   chunks and normalizes non-finite sample contributions to scalar zero.
 - Nix package `1.6.774+criomos.10` registers its v2 control action during
   Electron-main bridge startup, before clients can reach the control socket.
+- Nix package `1.6.774+criomos.11` routes meter messages at the recorder
+  handler entry, before upstream raw-audio decoding reads their array payload.
 
 ### Fixed
 

@@ -133,6 +133,28 @@ JS
 	node_check "$FIX"
 }
 
+@test "status-meter-renderer: enters the worklet handler before raw decoding" {
+	cat > "$FIX" <<'JS'
+class Vm {
+	static async handleRecorderWorkletMessage(e){if(Array.from(e.data[0]).every(e=>0===e)){return}const t=e.data[0],a=Gm(t);}
+}
+JS
+	bash "$PATCH_DIR/linux-status-meter-renderer.sh" "$FIX"
+	grep -qF 'static async handleRecorderWorkletMessage(e){/*WISPR_LINUX_STATUS_METER_RENDERER_BEGIN*/' "$FIX"
+	node_check "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-status-meter-renderer.sh" "$FIX"
+}
+
+@test "status-meter-renderer: rejects the old raw-decoder placement" {
+	cat > "$FIX" <<'JS'
+class Vm {
+	static async handleRecorderWorkletMessage(e){if(Array.from(e.data[0]).every(e=>0===e)){return}/*WISPR_LINUX_STATUS_METER_RENDERER_BEGIN*/globalThis.__wisprStatusMeterRendererMessage??=(s=>(window.electron.ipc.send("wispr-flow-status-meter-v2",s),!0));if(globalThis.__wisprStatusMeterRendererMessage(e.data))return;/*WISPR_LINUX_STATUS_METER_RENDERER*/const t=e.data[0],a=Gm(t);}
+}
+JS
+	run bash "$PATCH_DIR/linux-status-meter-renderer.sh" "$FIX"
+	[[ $status -ne 0 ]]
+}
+
 @test "chrome: idempotent on second run" {
 	cat > "$FIX" <<'JS'
 document.documentElement.classList.add(window.electron.platform.os);
