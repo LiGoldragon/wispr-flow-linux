@@ -17,6 +17,7 @@ if grep -q "$MARKER" "$BUNDLE"; then
     && grep -q 'WISPR_LINUX_STATUS_CONTROL' "$BUNDLE" \
     && grep -q 'WISPR_LINUX_STATUS_CONTROL_BEGIN' "$BUNDLE" \
     && grep -q 'WISPR_LINUX_STATUS_CONTROL_END' "$BUNDLE" \
+    && grep -q 'WISPR_LINUX_STATUS_METER_MAIN' "$BUNDLE" \
     && grep -q 'WISPR_LINUX_STATUS_WINDOW_SUPPRESSED' "$BUNDLE" \
     && grep -q 'WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED' "$BUNDLE" \
     && grep -qF 'if("linux"===process.platform)return;/*WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED*/const t=' "$BUNDLE" \
@@ -49,11 +50,11 @@ status_setter = 'qe=(e,t=!0,n={})=>{'
 data = replace_once(status_setter, 'qe=(e,t=!0,n={})=>{/*WISPR_LINUX_STATUS_LIFECYCLE*/', "authoritative status setter")
 
 startup = 'e.app.whenReady().then(()=>(async()=>{})()).catch(e=>{n().warn("Local dev auto sign-in failed",{customAttributes:{error:String(e)}})})'
-bootstrap = '''e.app.whenReady().then(()=>{if("linux"===process.platform)try{globalThis.__wisprStatusSnapshot??=(e=>{const t=String(e).toLowerCase(),n="idle"===t||"dismissed"===t?"idle":"initializing"===t||"listening"===t?"recording":"stopping"===t||"processing"===t||"retrying"===t?"transcribing":"error"===t?"error":"error";return{state:n,hands_free:!!S.ZZ.isLocked,..."error"===n&&"error"!==t?{error:"unknown_lifecycle_state"}:{}}}),globalThis.__wisprStatusBridge??=require(require("path").resolve(process.resourcesPath,"wispr-status-bridge.cjs")).startStatusBridge({snapshot:()=>globalThis.__wisprStatusSnapshot(S.ZZ.status)})}catch(e){n().error("Wispr status bridge startup failed",{customAttributes:{component:"status_bridge"}})}}).catch(e=>{n().warn("Local dev auto sign-in failed",{customAttributes:{error:String(e)}})})/*WISPR_LINUX_STATUS_BRIDGE WISPR_LINUX_STATUS_BOOTSTRAP*/'''
+bootstrap = '''e.app.whenReady().then(()=>{if("linux"===process.platform)try{globalThis.__wisprStatusMeter??={capture:"unavailable",rms:null},globalThis.__wisprStatusSnapshot??=(e=>{const t=String(e).toLowerCase(),n="idle"===t||"dismissed"===t?"idle":"initializing"===t||"listening"===t?"recording":"stopping"===t||"processing"===t||"retrying"===t?"transcribing":"error"===t?"error":"error",a=globalThis.__wisprStatusMeter;return{state:n,hands_free:!!S.ZZ.isLocked,capture:"available"===a?.capture?"available":"unavailable",rms:"available"===a?.capture&&Number.isFinite(a.rms)&&a.rms>=0&&a.rms<=1?a.rms:null,..."error"===n&&"error"!==t?{error:"unknown_lifecycle_state"}:{}}}),globalThis.__wisprStatusBridge??=require(require("path").resolve(process.resourcesPath,"wispr-status-bridge.cjs")).startStatusBridge({snapshot:()=>globalThis.__wisprStatusSnapshot(S.ZZ.status)}),/*WISPR_LINUX_STATUS_METER_MAIN_BEGIN*/globalThis.__wisprStatusMeterMessage??=(t=>{if(!t||"wispr-flow-status-meter-v2"!==t.type||"boolean"!=typeof t.capture)return!1;if(t.capture){const e=Number(t.rms);if(!Number.isFinite(e)||e<0||e>1)return!1;globalThis.__wisprStatusMeter={capture:"available",rms:e}}else{if(void 0!==t.rms)return!1;globalThis.__wisprStatusMeter={capture:"unavailable",rms:null}}return globalThis.__wisprStatusBridge?.publishMeter(globalThis.__wisprStatusMeter)})/*WISPR_LINUX_STATUS_METER_MAIN_END*/,require("electron").ipcMain.on("wispr-flow-status-meter-v2",(e,t)=>{globalThis.__wisprStatusMeterMessage(t)})/*WISPR_LINUX_STATUS_METER_MAIN*/}catch(e){n().error("Wispr status bridge startup failed",{customAttributes:{component:"status_bridge"}})}}).catch(e=>{n().warn("Local dev auto sign-in failed",{customAttributes:{error:String(e)}})})/*WISPR_LINUX_STATUS_BRIDGE WISPR_LINUX_STATUS_BOOTSTRAP*/'''
 data = replace_once(startup, bootstrap, "unconditional Electron main startup")
 
 status_assignment = 'const i=p.ZZ.status;p.ZZ.status=e,p.ZZ.statusLastUpdatedTime=Date.now();'
-data = replace_once(status_assignment, 'const i=p.ZZ.status;p.ZZ.status=e,p.ZZ.statusLastUpdatedTime=Date.now(),globalThis.__wisprStatusBridge?.publish(globalThis.__wisprStatusSnapshot(e))/*WISPR_LINUX_STATUS_PUBLICATION*/;', "status publication")
+data = replace_once(status_assignment, 'const i=p.ZZ.status;p.ZZ.status=e,p.ZZ.statusLastUpdatedTime=Date.now(),"Listening"!==e&&"Initializing"!==e&&(globalThis.__wisprStatusMeter={capture:"unavailable",rms:null},globalThis.__wisprStatusBridge?.publishMeter(globalThis.__wisprStatusMeter)),globalThis.__wisprStatusBridge?.publish(globalThis.__wisprStatusSnapshot(e))/*WISPR_LINUX_STATUS_PUBLICATION*/;', "status publication")
 
 hands_free = 'const Q=()=>{try{const e=S.ZZ.status;'
 # The paired markers delimit standalone expressions in the signed payload.  The
@@ -115,6 +116,7 @@ if ! grep -q "$MARKER" "$BUNDLE" \
   || ! grep -q 'WISPR_LINUX_STATUS_CONTROL' "$BUNDLE" \
   || ! grep -q 'WISPR_LINUX_STATUS_CONTROL_BEGIN' "$BUNDLE" \
   || ! grep -q 'WISPR_LINUX_STATUS_CONTROL_END' "$BUNDLE" \
+  || ! grep -q 'WISPR_LINUX_STATUS_METER_MAIN' "$BUNDLE" \
   || ! grep -q 'WISPR_LINUX_STATUS_WINDOW_SUPPRESSED' "$BUNDLE" \
   || ! grep -q 'WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED' "$BUNDLE"; then
   cp -p "$BEFORE" "$BUNDLE"

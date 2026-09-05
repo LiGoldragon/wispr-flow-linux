@@ -16,7 +16,7 @@
 }:
 let
   pname = "wispr-flow";
-  version = "1.6.774+criomos.6";
+  version = "1.6.774+criomos.7";
   installerSha256 = "fd30ef74f10348241e4a64ab4fc6619084ec5b7108cdc6444c3c290620861beb";
 
   #============================================================================
@@ -148,6 +148,8 @@ stdenvNoCC.mkDerivation {
     bash ${sourceRoot}/scripts/patches/linux-hub-viewport.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/linux-deeplink.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/linux-status-bridge.sh "$main_bundle"
+    bash ${sourceRoot}/scripts/patches/linux-status-meter-worklet.sh \
+      asar-contents/.webpack/renderer/dist/recorderWorklet.js
 
     install -m 0644 ${sourceRoot}/scripts/wispr-status-bridge.cjs stage/wispr-status-bridge.cjs
     install -m 0755 ${sourceRoot}/scripts/wispr-flow-status.cjs stage/wispr-flow-status.cjs
@@ -156,6 +158,7 @@ stdenvNoCC.mkDerivation {
     hub_renderer="$webpack_root/renderer/hub/index.js"
     [[ -f "$hub_renderer" ]] || { echo "hub renderer not found at $hub_renderer" >&2; exit 1; }
     bash ${sourceRoot}/scripts/patches/linux-renderer-chrome.sh "$hub_renderer"
+    bash ${sourceRoot}/scripts/patches/linux-status-meter-renderer.sh "$hub_renderer"
 
     renderer_count=0
     for renderer in "$webpack_root"/renderer/*/index.js; do

@@ -14,7 +14,11 @@
 		[[ -f $renderer ]] && grep -qF 'platform?.isWindows' "$renderer" && bash "$BATS_TEST_DIRNAME/../scripts/patches/linux-renderer-treat-as-windows.sh" "$renderer"
 	done
 	bash "$BATS_TEST_DIRNAME/../scripts/patches/linux-renderer-chrome.sh" "$copy/.webpack/renderer/hub/index.js"
+	bash "$BATS_TEST_DIRNAME/../scripts/patches/linux-status-meter-worklet.sh" "$copy/.webpack/renderer/dist/recorderWorklet.js"
+	bash "$BATS_TEST_DIRNAME/../scripts/patches/linux-status-meter-renderer.sh" "$copy/.webpack/renderer/hub/index.js"
 	node --check "$main"
+	node --check "$copy/.webpack/renderer/dist/recorderWorklet.js"
+	node --check "$copy/.webpack/renderer/hub/index.js"
 	bash "$BATS_TEST_DIRNAME/../scripts/patches/linux-status-bridge.sh" "$main"
 }
 
@@ -87,7 +91,7 @@ JS
 
 @test "status patch rejects a one-line bundle containing every marker" {
 	local fake="$BATS_TEST_TMPDIR/all-markers.js"
-	printf '%s\n' '/*WISPR_LINUX_STATUS_BRIDGE WISPR_LINUX_STATUS_BOOTSTRAP WISPR_LINUX_STATUS_LIFECYCLE WISPR_LINUX_STATUS_PUBLICATION WISPR_LINUX_STATUS_CONTROL WISPR_LINUX_STATUS_WINDOW_SUPPRESSED WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED*/' > "$fake"
+	printf '%s\n' '/*WISPR_LINUX_STATUS_BRIDGE WISPR_LINUX_STATUS_BOOTSTRAP WISPR_LINUX_STATUS_LIFECYCLE WISPR_LINUX_STATUS_PUBLICATION WISPR_LINUX_STATUS_CONTROL WISPR_LINUX_STATUS_METER_MAIN WISPR_LINUX_STATUS_WINDOW_SUPPRESSED WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED*/' > "$fake"
 	run bash "$BATS_TEST_DIRNAME/../scripts/patches/linux-status-bridge.sh" "$fake"
 	[[ $status -ne 0 ]]
 }

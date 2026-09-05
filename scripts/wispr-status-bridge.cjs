@@ -3,7 +3,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const net = require("node:net");
 const path = require("node:path");
-const CONTRACT = "com.criomos.wispr.status.v1";
+const CONTRACT = "com.criomos.wispr.status.v2";
 const STATES = new Set(["idle", "recording", "transcribing", "error"]);
 
 function mapWisprState(value) {
@@ -22,7 +22,7 @@ async function reclaim(socketPath) {
     const before = identity(socketPath); if (before === identity(socketPath)) fs.unlinkSync(socketPath);
   } catch (error) { if (error.code !== "ENOENT") throw error; }
 }
-function sanitize(input) { const state = STATES.has(input?.state) ? input.state : "error"; const result = { state, hands_free: input?.hands_free === true }; if (state === "error" && /^[a-z0-9_.-]{1,64}$/.test(input?.error || "")) result.error = input.error; return result; }
+function sanitize(input) { const state = STATES.has(input?.state) ? input.state : "error"; const result = { state, hands_free: input?.hands_free === true, capture: "unavailable", rms: null }; if (input?.capture === "available" && Number.isFinite(input?.rms) && input.rms >= 0 && input.rms <= 1) { result.capture = "available"; result.rms = input.rms; } if (state === "error" && /^[a-z0-9_.-]{1,64}$/.test(input?.error || "")) result.error = input.error; return result; }
 
 function defaultRuntimeDir() {
   const configured = process.env.XDG_RUNTIME_DIR;
@@ -35,12 +35,13 @@ function defaultRuntimeDir() {
 
 function startStatusBridge({ runtimeDir = defaultRuntimeDir(), snapshot = () => ({}), controlTimeoutMs = 3000, heartbeatMs = 1000 } = {}) {
   if (!path.isAbsolute(runtimeDir || "")) throw new Error("XDG_RUNTIME_DIR is required");
-  const statusPath = path.join(runtimeDir, "wispr-flow-status-v1.sock"), controlPath = path.join(runtimeDir, "wispr-flow-control-v1.sock"), sessionId = crypto.randomUUID();
+  const statusPath = path.join(runtimeDir, "wispr-flow-status-v2.sock"), controlPath = path.join(runtimeDir, "wispr-flow-control-v2.sock"), sessionId = crypto.randomUUID();
   let sequence = 0, current = sanitize(snapshot()), action = null, queue = Promise.resolve();
   const clients = new Set(), controlClients = new Set(), watchers = new Set(), owned = new Map();
   const packet = () => ({ contract: CONTRACT, type: "snapshot", session_id: sessionId, sequence, ...current });
   const write = (socket, value) => { if (!socket.destroyed) socket.write(`${JSON.stringify(value)}\n`); };
   const publish = next => { current = sanitize(next); sequence += 1; const value = packet(); for (const socket of clients) write(socket, value); for (const watcher of watchers) watcher(); };
+  const publishMeter = meter => { let next; if (meter?.capture === "unavailable" && meter.rms === undefined) next = { ...current, capture: "unavailable", rms: null }; else if (meter?.capture === "available" && Number.isFinite(meter.rms) && meter.rms >= 0 && meter.rms <= 1) next = { ...current, capture: "available", rms: meter.rms }; else return false; publish(next); return true; };
   const waitFor = (target, baseline) => { if (sequence > baseline && current.hands_free === target) return Promise.resolve(true); return new Promise(resolve => { const watcher = () => { if (sequence > baseline && current.hands_free === target) { clearTimeout(timer); watchers.delete(watcher); resolve(true); } }; const timer = setTimeout(() => { watchers.delete(watcher); resolve(false); }, controlTimeoutMs); watchers.add(watcher); }); };
   const statusServer = net.createServer(socket => { clients.add(socket); socket.on("close", () => clients.delete(socket)); socket.on("error", () => socket.destroy()); write(socket, packet()); });
   const controlServer = net.createServer(socket => { controlClients.add(socket); socket.on("close", () => controlClients.delete(socket)); let buffer = ""; socket.on("error", () => socket.destroy()); socket.on("data", chunk => { buffer += chunk; const end = buffer.indexOf("\n"); if (end < 0) return buffer.length > 4096 && socket.destroy(); let request; try { request = JSON.parse(buffer.slice(0, end)); } catch { socket.end(`${JSON.stringify({ contract: CONTRACT, type: "control_result", ok: false, error: "invalid_request" })}\n`); return; }
@@ -48,6 +49,6 @@ function startStatusBridge({ runtimeDir = defaultRuntimeDir(), snapshot = () => 
   const listen = async (server, socketPath) => { const bind = () => new Promise((resolve, reject) => { server.once("error", reject); server.listen(socketPath, () => { server.removeListener("error", reject); resolve(); }); }); try { await bind(); } catch (error) { if (error.code !== "EADDRINUSE") throw error; await reclaim(socketPath); await bind(); } fs.chmodSync(socketPath, 0o600); owned.set(socketPath, identity(socketPath)); };
   let heartbeat, closed = false;
   const ready = Promise.all([listen(statusServer, statusPath), listen(controlServer, controlPath)]).then(() => { if (!closed) heartbeat = setInterval(() => publish(current), heartbeatMs); });
-  return { statusPath, controlPath, ready, publish, setToggleHandsFree(fn) { action = typeof fn === "function" ? fn : null; }, async close() { closed = true; if (heartbeat) clearInterval(heartbeat); for (const socket of clients) socket.destroy(); for (const socket of controlClients) socket.destroy(); await Promise.all([statusServer, controlServer].map(server => new Promise(resolve => server.close(resolve)))); for (const socketPath of [statusPath, controlPath]) try { if (owned.get(socketPath) === identity(socketPath)) fs.unlinkSync(socketPath); } catch (error) { if (error.code !== "ENOENT") throw error; } } };
+  return { statusPath, controlPath, ready, publish, publishMeter, setToggleHandsFree(fn) { action = typeof fn === "function" ? fn : null; }, async close() { closed = true; if (heartbeat) clearInterval(heartbeat); for (const socket of clients) socket.destroy(); for (const socket of controlClients) socket.destroy(); await Promise.all([statusServer, controlServer].map(server => new Promise(resolve => server.close(resolve)))); for (const socketPath of [statusPath, controlPath]) try { if (owned.get(socketPath) === identity(socketPath)) fs.unlinkSync(socketPath); } catch (error) { if (error.code !== "ENOENT") throw error; } } };
 }
 module.exports = { CONTRACT, mapWisprState, startStatusBridge };

@@ -10,8 +10,9 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
 
 ### Added
 
-- Linux-only `com.criomos.wispr.status.v1`: app-owned private runtime-socket
-  snapshots and a typed `wispr-flow-status toggle-hands-free` control CLI.
+- Linux-only `com.criomos.wispr.status.v2`: app-owned private runtime-socket
+  snapshots, truthful scalar microphone capture activity, and a typed
+  `wispr-flow-status toggle-hands-free` control CLI.
 
 ### Changed
 
@@ -19,6 +20,8 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   (`fd30ef74f10348241e4a64ab4fc6619084ec5b7108cdc6444c3c290620861beb`).
 - Nix package `1.6.774+criomos.2` now owns the immutable signed installer;
   caller-provided installer paths and `WISPR_FLOW_EXE` are no longer accepted.
+- Nix package `1.6.774+criomos.7` replaces status contract v1 with v2 and
+  carries only a normalized RMS scalar plus explicit capture availability.
 
 ### Fixed
 

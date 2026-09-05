@@ -44,6 +44,9 @@ declare -gA MARKER_SAMPLES=(
     [statuspublication]='/*WISPR_LINUX_STATUS_PUBLICATION*/'
     [statusmodepublication]='/*WISPR_LINUX_STATUS_MODE_PUBLICATION*/'
 	[statuscontrol]='/*WISPR_LINUX_STATUS_CONTROL*/'
+	[statusmetermain]='/*WISPR_LINUX_STATUS_METER_MAIN*/'
+	[statusmeterworklet]='/*WISPR_LINUX_STATUS_METER_WORKLET*/'
+	[statusmeterrenderer]='/*WISPR_LINUX_STATUS_METER_RENDERER*/'
 	[statuswindow]='"linux"!==process.platform&&e.showInactive()/*WISPR_LINUX_STATUS_WINDOW_SUPPRESSED*/;'
 	[statusreshow]='if("linux"===process.platform)return;/*WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED*/'
 )

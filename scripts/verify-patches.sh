@@ -55,6 +55,9 @@ MARKERS=(
   "status bridge: authoritative state publication|F|WISPR_LINUX_STATUS_PUBLICATION"
   "status bridge: hands-free mode publication|F|WISPR_LINUX_STATUS_MODE_PUBLICATION"
   "status bridge: real hands-free action hook|F|WISPR_LINUX_STATUS_CONTROL"
+  "status bridge: main scalar-meter validation|F|WISPR_LINUX_STATUS_METER_MAIN"
+  "status bridge: recorder scalar-meter producer|F|WISPR_LINUX_STATUS_METER_WORKLET"
+  "status bridge: renderer scalar-meter validation|F|WISPR_LINUX_STATUS_METER_RENDERER"
   "status bridge: Status window suppressed on Linux|F|WISPR_LINUX_STATUS_WINDOW_SUPPRESSED"
   "status bridge: dictation cannot re-show Status window|F|WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED"
 )

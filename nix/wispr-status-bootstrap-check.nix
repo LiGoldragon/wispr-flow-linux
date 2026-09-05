@@ -53,6 +53,99 @@ runCommand "wispr-flow-status-bootstrap"
         assert.equal(fs.existsSync(socketPath), false);
       }
 
+      const workletPath = path.join(
+        path.dirname(path.dirname(mainPath)),
+        "renderer/dist/recorderWorklet.js",
+      );
+      const workletSource = fs.readFileSync(workletPath, "utf8");
+      const posted = [];
+      class AudioWorkletProcessor {
+        constructor() { this.port = { postMessage: value => posted.push(value) }; }
+      }
+      let RecorderProcessor;
+      const workletContext = {
+        AudioWorkletProcessor,
+        Float32Array,
+        Uint16Array,
+        Set,
+        Math,
+        Number,
+        registerProcessor: (_, processor) => { RecorderProcessor = processor; },
+      };
+      vm.createContext(workletContext);
+      vm.runInContext(workletSource, workletContext);
+      const recorder = new RecorderProcessor({ numberOfInputs: 1 });
+      recorder.port.onmessage({ data: "start" });
+      assert.deepEqual({ ...posted.pop() }, {
+        type: "wispr-flow-status-meter-v2", capture: true, rms: 0,
+      });
+      for (const [sample, expected] of [
+        [0, 0], [0.5, 0.5], [Math.sqrt(1 / 3), Math.sqrt(1 / 3)], [2, 1],
+      ]) {
+        posted.length = 0;
+        recorder.process([[Float32Array.from({ length: 640 }, () => sample)]]);
+        const meter = posted.find(value => value?.type === "wispr-flow-status-meter-v2");
+        assert.ok(meter, "actual recorder worklet did not emit a scalar meter");
+        assert.equal(meter.capture, true);
+        assert.ok(Math.abs(meter.rms - expected) < 1e-6, `$${meter.rms} != $${expected}`);
+        assert.equal(Object.keys(meter).sort().join(","), "capture,rms,type");
+      }
+      recorder.port.onmessage({ data: "stop" });
+      assert.deepEqual({ ...posted.at(-2) }, {
+        type: "wispr-flow-status-meter-v2", capture: false,
+      });
+
+      const hubPath = path.join(path.dirname(path.dirname(mainPath)), "renderer/hub/index.js");
+      const hubSource = fs.readFileSync(hubPath, "utf8");
+      const extract = (source, begin, end, label) => {
+        assert.equal(source.split(begin).length - 1, 1, `one $${label} begin marker`);
+        assert.equal(source.split(end).length - 1, 1, `one $${label} end marker`);
+        return source.slice(source.indexOf(begin) + begin.length, source.indexOf(end));
+      };
+      const sent = [];
+      const rendererContext = {
+        window: { electron: { ipc: { send: (...args) => sent.push(args) } } },
+      };
+      rendererContext.globalThis = rendererContext;
+      vm.createContext(rendererContext);
+      vm.runInContext(extract(hubSource,
+        "/*WISPR_LINUX_STATUS_METER_RENDERER_BEGIN*/",
+        "/*WISPR_LINUX_STATUS_METER_RENDERER_END*/", "renderer meter"), rendererContext);
+      const rendererMeter = rendererContext.__wisprStatusMeterRendererMessage;
+      assert.equal(rendererMeter({ type: "wispr-flow-status-meter-v2", capture: true, rms: 0.5 }), true);
+      assert.equal(sent.length, 1);
+      assert.equal(sent[0][0], "wispr-flow-status-meter-v2");
+      assert.deepEqual({ ...sent[0][1] }, {
+        type: "wispr-flow-status-meter-v2", capture: true, rms: 0.5,
+      });
+      assert.equal(rendererMeter({ type: "wispr-flow-status-meter-v2", capture: true, rms: Infinity }), true);
+      assert.equal(rendererMeter({ type: "wispr-flow-status-meter-v2", capture: false, rms: 0 }), true);
+      assert.equal(sent.length, 1, "invalid meter reached IPC");
+
+      const mainMeter = extract(source,
+        "/*WISPR_LINUX_STATUS_METER_MAIN_BEGIN*/",
+        "/*WISPR_LINUX_STATUS_METER_MAIN_END*/", "main meter");
+      const publishedMeters = [];
+      const meterContext = {
+        __wisprStatusBridge: { publishMeter: value => { publishedMeters.push(value); return true; } },
+      };
+      meterContext.globalThis = meterContext;
+      vm.createContext(meterContext);
+      vm.runInContext(mainMeter, meterContext);
+      assert.equal(meterContext.__wisprStatusMeterMessage({
+        type: "wispr-flow-status-meter-v2", capture: true, rms: 0.5,
+      }), true);
+      assert.equal(meterContext.__wisprStatusMeterMessage({
+        type: "wispr-flow-status-meter-v2", capture: true, rms: NaN,
+      }), false);
+      assert.equal(meterContext.__wisprStatusMeterMessage({
+        type: "wispr-flow-status-meter-v2", capture: false,
+      }), true);
+      assert.deepEqual(publishedMeters.map(value => ({ ...value })), [
+        { capture: "available", rms: 0.5 },
+        { capture: "unavailable", rms: null },
+      ]);
+
       const extractMarkedExpression = (begin, end, label) => {
         const count = marker => source.split(marker).length - 1;
         assert.equal(count(begin), 1, `expected one $${label} begin marker`);

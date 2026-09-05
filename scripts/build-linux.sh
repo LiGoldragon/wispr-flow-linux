@@ -288,6 +288,10 @@ step3_patch_bundle() {
     auto "Running linux-status-bridge.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-status-bridge.sh" "$target_bundle" \
       || die "Status bridge patch failed; refusing to package an unverified bridge."
+    auto "Running linux-status-meter-worklet.sh"
+    bash "$SCRIPT_DIR/patches/linux-status-meter-worklet.sh" \
+      "${target_bundle%/main/index.js}/renderer/dist/recorderWorklet.js" \
+      || die "Status meter worklet patch failed; refusing to package raw audio."
 
     # Renderer + preload patches live alongside the main bundle under .webpack/.
     local webpack_root="${target_bundle%/main/index.js}"
@@ -299,6 +303,9 @@ step3_patch_bundle() {
       auto "Running linux-renderer-chrome.sh on $hub_renderer"
       bash "$SCRIPT_DIR/patches/linux-renderer-chrome.sh" "$hub_renderer" \
         || warn "Renderer-chrome patch failed -- see linux-renderer-chrome.sh output above."
+      auto "Running linux-status-meter-renderer.sh on $hub_renderer"
+      bash "$SCRIPT_DIR/patches/linux-status-meter-renderer.sh" "$hub_renderer" \
+        || die "Status meter renderer patch failed; refusing to package raw audio."
     else
       warn "Hub renderer bundle not found at $hub_renderer -- skipping chrome patch."
     fi

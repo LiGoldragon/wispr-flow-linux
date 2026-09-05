@@ -1,8 +1,8 @@
-# Wispr status bridge v1
+# Wispr status bridge v2
 
-Linux packages expose `com.criomos.wispr.status.v1` over private Unix sockets
-under `$XDG_RUNTIME_DIR`: `wispr-flow-status-v1.sock` and
-`wispr-flow-control-v1.sock` (mode `0600`). If the FHS Electron child loses the
+Linux packages expose `com.criomos.wispr.status.v2` over private Unix sockets
+under `$XDG_RUNTIME_DIR`: `wispr-flow-status-v2.sock` and
+`wispr-flow-control-v2.sock` (mode `0600`). If the FHS Electron child loses the
 variable, the app recovers the same user-owned private runtime directory at
 `/run/user/<uid>`. Electron starts the app-owned bridge once at main-process
 ready, before any dictation lifecycle transition. No helper acknowledgement,
@@ -13,10 +13,16 @@ show path runs and when dictation-start visibility recovery runs. Noctalia is
 the only status surface in the managed desktop integration.
 
 Every status client immediately receives a newline-delimited JSON `snapshot`:
-`contract`, `type`, `session_id`, `sequence`, `state`, and `hands_free`.
+`contract`, `type`, `session_id`, `sequence`, `state`, `hands_free`, `capture`,
+and `rms`.
 `state` is `idle`, `recording`, `transcribing`, or `error`; only an optional
 machine-safe error code may accompany `error`. A process start changes
 `session_id`; each lifecycle transition increments `sequence`.
+
+`capture` is `available` only while the recorder can supply a scalar meter;
+then `rms` is a finite normalized value from `0` through `1`. `rms:0` is true
+silence, whereas `capture:"unavailable",rms:null` means the capture path is
+not available. Packets never carry samples, waveform data, or FFT bins.
 
 The bridge republishes its current snapshot every second, below the consumer's
 five-second stale threshold, so an unchanged recording remains live. The

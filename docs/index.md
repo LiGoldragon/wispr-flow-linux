@@ -83,5 +83,5 @@ the ways it bites.
   step-by-step
 # Status integration
 
-See [Wispr status bridge v1](reference/wispr-status-bridge.md) for the private,
+See [Wispr status bridge v2](reference/wispr-status-bridge.md) for the private,
 text-free Noctalia integration contract and packaged toggle command.

@@ -51,7 +51,7 @@ function next(path) {
   let lines = "";
   const transition = new Promise((resolve, reject) => { subscriber.on("data", chunk => { lines += chunk; const packets = lines.trim().split("\n"); if (packets.length === 2) resolve([JSON.parse(packets[0]), JSON.parse(packets[1])]); }); subscriber.on("error", reject); });
   const initial = await next(bridge.statusPath);
-  assert.equal(initial.contract, "com.criomos.wispr.status.v1");
+  assert.equal(initial.contract, "com.criomos.wispr.status.v2");
   assert.equal(initial.type, "snapshot");
   assert.equal(initial.state, "idle");
   assert.equal(initial.hands_free, false);
@@ -66,7 +66,7 @@ function next(path) {
   assert.ok(updated.sequence > initial.sequence);
   assert.equal(updated.session_id, initial.session_id);
   assert.deepEqual(Object.keys(updated).sort(),
-    ["contract", "hands_free", "sequence", "session_id", "state", "type"]);
+    ["capture", "contract", "hands_free", "rms", "sequence", "session_id", "state", "type"]);
   await bridge.close();
 })().catch((error) => { console.error(error); process.exitCode = 1; });
 NODE
@@ -116,6 +116,18 @@ NODE
 	[[ $status -eq 0 ]]
 }
 
+@test "meter distinguishes available silence, drops invalid values, resets, and survives heartbeat" {
+	run node - <<'NODE'
+const assert = require("node:assert/strict"), fs = require("node:fs"), net = require("node:net");
+const { startStatusBridge } = require(process.env.BRIDGE);
+const runtime = `${process.env.TEST_TMP}/runtime`; fs.mkdirSync(runtime, { mode: 0o700 });
+const bridge = startStatusBridge({ runtimeDir: runtime, heartbeatMs: 10, snapshot: () => ({ state: "recording", hands_free: false, capture: "unavailable", rms: null }) });
+const next = () => new Promise((resolve, reject) => { const socket = net.connect(bridge.statusPath); let buffer = ""; socket.on("data", chunk => { buffer += chunk; const end = buffer.indexOf("\n"); if (end >= 0) { socket.destroy(); resolve(JSON.parse(buffer.slice(0, end))); } }); socket.on("error", reject); });
+(async () => { await bridge.ready; const initial = await next(); assert.equal(initial.capture, "unavailable"); assert.equal(initial.rms, null); assert.equal(bridge.publishMeter({ capture: "available", rms: 0 }), true); const silence = await next(); assert.equal(silence.capture, "available"); assert.equal(silence.rms, 0); const sequence = silence.sequence; assert.equal(bridge.publishMeter({ capture: "available", rms: Infinity }), false); const retained = await next(); assert.equal(retained.rms, 0); assert.equal(retained.sequence, sequence); assert.equal(Object.keys(retained).includes("packet"), false); assert.equal(Object.keys(retained).includes("samples"), false); assert.equal(bridge.publishMeter({ capture: "available", rms: .5 }), true); const heartbeat = await new Promise((resolve, reject) => { const socket = net.connect(bridge.statusPath); let lines = ""; const timeout = setTimeout(() => reject(new Error("meter heartbeat did not arrive")), 200); socket.on("data", chunk => { lines += chunk; const packets = lines.trim().split("\n"); if (packets.length >= 2) { clearTimeout(timeout); socket.destroy(); resolve(JSON.parse(packets.at(-1))); } }); socket.on("error", reject); }); assert.equal(heartbeat.capture, "available"); assert.equal(heartbeat.rms, .5); assert.ok(heartbeat.sequence > sequence); assert.equal(bridge.publishMeter({ capture: "unavailable" }), true); const reset = await next(); assert.equal(reset.capture, "unavailable"); assert.equal(reset.rms, null); await bridge.close(); })().catch(error => { console.error(error); process.exitCode = 1; });
+NODE
+	[[ $status -eq 0 ]]
+}
+
 @test "bridge control replies only after the registered hands-free action" {
 	run node - <<'NODE'
 const assert = require("node:assert/strict");
@@ -142,7 +154,7 @@ bridge.setToggleHandsFree(async () => {
     const socket = net.connect(bridge.controlPath);
     let buffer = "";
     socket.on("connect", () => socket.write(JSON.stringify({
-      contract: "com.criomos.wispr.status.v1",
+      contract: "com.criomos.wispr.status.v2",
       type: "control",
       id: "test-toggle",
       command: "toggle_hands_free",
@@ -158,7 +170,7 @@ bridge.setToggleHandsFree(async () => {
   });
   assert.equal(actions, 1);
   assert.deepEqual(reply, {
-    contract: "com.criomos.wispr.status.v1",
+    contract: "com.criomos.wispr.status.v2",
     type: "control_result",
     id: "test-toggle",
     ok: true,
@@ -187,7 +199,7 @@ NODE
 const assert=require("node:assert/strict"),fs=require("node:fs"),net=require("node:net"),{startStatusBridge}=require(process.env.BRIDGE);
 const runtime=`${process.env.TEST_TMP}/runtime`;fs.mkdirSync(runtime,{mode:0o700}); const bridge=startStatusBridge({runtimeDir:runtime,controlTimeoutMs:40,snapshot:()=>({state:"idle",hands_free:false})});
 bridge.setToggleHandsFree(async()=>{bridge.publish({state:"recording",hands_free:true});return {hands_free:true}});
-(async()=>{await bridge.ready;const reply=await new Promise((resolve,reject)=>{const s=net.connect(bridge.controlPath);let b="";s.on("connect",()=>s.write('{"contract":"com.criomos.wispr.status.v1","type":"control","id":"sync","command":"toggle_hands_free"}\n'));s.on("data",d=>{b+=d;const n=b.indexOf("\n");if(n>=0){s.destroy();resolve(JSON.parse(b.slice(0,n)))}});s.on("error",reject)});assert.equal(reply.ok,true);await bridge.close()})().catch(e=>{console.error(e);process.exitCode=1});
+(async()=>{await bridge.ready;const reply=await new Promise((resolve,reject)=>{const s=net.connect(bridge.controlPath);let b="";s.on("connect",()=>s.write('{"contract":"com.criomos.wispr.status.v2","type":"control","id":"sync","command":"toggle_hands_free"}\n'));s.on("data",d=>{b+=d;const n=b.indexOf("\n");if(n>=0){s.destroy();resolve(JSON.parse(b.slice(0,n)))}});s.on("error",reject)});assert.equal(reply.ok,true);await bridge.close()})().catch(e=>{console.error(e);process.exitCode=1});
 NODE
 	[[ $status -eq 0 ]]
 }
@@ -205,7 +217,7 @@ NODE
 	run node - <<'NODE'
 const assert=require("node:assert/strict"),fs=require("node:fs"),net=require("node:net"),{startStatusBridge}=require(process.env.BRIDGE);
 const runtime=`${process.env.TEST_TMP}/runtime`;fs.mkdirSync(runtime,{mode:0o700});
-const request=(p,id)=>new Promise((resolve,reject)=>{const s=net.connect(p);let b="";s.on("connect",()=>s.write(JSON.stringify({contract:"com.criomos.wispr.status.v1",type:"control",id,command:"toggle_hands_free"})+"\n"));s.on("data",d=>{b+=d;const n=b.indexOf("\n");if(n>=0){s.destroy();resolve(JSON.parse(b.slice(0,n)))}});s.on("error",reject)});
+const request=(p,id)=>new Promise((resolve,reject)=>{const s=net.connect(p);let b="";s.on("connect",()=>s.write(JSON.stringify({contract:"com.criomos.wispr.status.v2",type:"control",id,command:"toggle_hands_free"})+"\n"));s.on("data",d=>{b+=d;const n=b.indexOf("\n");if(n>=0){s.destroy();resolve(JSON.parse(b.slice(0,n)))}});s.on("error",reject)});
 (async()=>{let bridge=startStatusBridge({runtimeDir:runtime,controlTimeoutMs:30,snapshot:()=>({state:"idle",hands_free:false})});bridge.setToggleHandsFree(async()=>{throw new Error("rejected")});await bridge.ready;assert.equal((await request(bridge.controlPath,"reject")).error,"action_failed");await bridge.close();bridge=startStatusBridge({runtimeDir:runtime,controlTimeoutMs:30,snapshot:()=>({state:"recording",hands_free:true})});bridge.setToggleHandsFree(async()=>({hands_free:true}));await bridge.ready;assert.equal((await request(bridge.controlPath,"old")).error,"state_timeout");await bridge.close()})().catch(e=>{console.error(e);process.exitCode=1});
 NODE
 	[[ $status -eq 0 ]]
@@ -223,7 +235,7 @@ NODE
 @test "CLI times out and rejects a peer that closes before replying" {
 	run node - <<'NODE'
 const assert=require("node:assert/strict"),fs=require("node:fs"),net=require("node:net"),{spawn}=require("node:child_process");
-const runtime=`${process.env.TEST_TMP}/runtime`;fs.mkdirSync(runtime,{mode:0o700});const p=`${runtime}/wispr-flow-control-v1.sock`;
+const runtime=`${process.env.TEST_TMP}/runtime`;fs.mkdirSync(runtime,{mode:0o700});const p=`${runtime}/wispr-flow-control-v2.sock`;
 const server=net.createServer(s=>s.end());server.listen(p,()=>{const child=spawn(process.execPath,[process.env.CLI,"toggle-hands-free"],{env:{...process.env,XDG_RUNTIME_DIR:runtime,WISPR_FLOW_STATUS_TIMEOUT_MS:"50"}});let err="";child.stderr.on("data",d=>err+=d);child.on("close",code=>server.close(()=>{assert.equal(code,1);assert.match(err,/closed without a reply/)}));});
 NODE
 	[[ $status -eq 0 ]]
@@ -238,7 +250,7 @@ const { spawn } = require("node:child_process");
 
 const runtime = `${process.env.TEST_TMP}/runtime`;
 fs.mkdirSync(runtime, { mode: 0o700 });
-const path = `${runtime}/wispr-flow-control-v1.sock`;
+const path = `${runtime}/wispr-flow-control-v2.sock`;
 const server = net.createServer((socket) => {
   let buffer = "";
   socket.on("data", (chunk) => {
@@ -246,7 +258,7 @@ const server = net.createServer((socket) => {
     const newline = buffer.indexOf("\n");
     if (newline < 0) return;
     const request = JSON.parse(buffer.slice(0, newline));
-    assert.equal(request.contract, "com.criomos.wispr.status.v1");
+    assert.equal(request.contract, "com.criomos.wispr.status.v2");
     assert.equal(request.type, "control");
     assert.equal(request.command, "toggle_hands_free");
     socket.end(JSON.stringify({
