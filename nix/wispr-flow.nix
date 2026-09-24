@@ -146,6 +146,7 @@ stdenvNoCC.mkDerivation {
     bash ${sourceRoot}/scripts/patches/helper-env.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/linux-window-frame.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/linux-hub-viewport.sh "$main_bundle"
+    bash ${sourceRoot}/scripts/patches/linux-notetaker-theme.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/linux-deeplink.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/linux-status-bridge.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/linux-status-meter-worklet.sh \

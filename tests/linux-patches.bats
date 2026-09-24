@@ -248,6 +248,37 @@ JS
 # linux-renderer-treat-as-windows.sh
 # =============================================================================
 
+@test "notetaker-theme: raises contrast and follows the system dark preference" {
+	cat > "$FIX" <<'JS'
+const r={BrowserWindow:class {constructor(){this.webContents={once:(_event,callback)=>callback(),insertCSS:css=>{this.css=css;return{catch:()=>{}}},on:()=>{}}}};
+const u={c:()=>{}};
+const c={tD:!1};
+const g={g:{}};
+const b=400;
+const v=()=>({x:0,y:0,width:100,height:100});
+const T=()=>{const e=v(),t={title:"Meeting Recorder",x:e.x,y:e.y,width:e.width,height:e.height,show:!1,webPreferences:{...g.g,preload:require("path").resolve(__dirname,"../renderer","meeting_recorder","preload.js"),spellcheck:!0},fullscreenable:!0,maximizable:!0,minimizable:!0,resizable:!0,movable:!0,closable:!0,focusable:!0,minWidth:b,minHeight:600};c.tD?Object.assign(t,{frame:!1,titleBarStyle:"hidden",trafficLightPosition:{x:1e4,y:10},transparent:!0,hasShadow:!0}):"win32"===process.platform&&Object.assign(t,{titleBarStyle:"hidden",autoHideMenuBar:!0});const n=new r.BrowserWindow(t);let i;(0,u.c)(n),n.webContents.on("render-process-gone",()=>{});return n};
+const recorder=T();
+if(!recorder.css.includes("contrast(1.14)")||!recorder.css.includes("prefers-color-scheme: dark")||!recorder.css.includes("invert(1)"))process.exit(1);
+JS
+	run bash "$PATCH_DIR/linux-notetaker-theme.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -q 'WISPR_LINUX_NOTETAKER_THEME' "$FIX"
+	grep -qF 'prefers-color-scheme: dark' "$FIX"
+	node_check "$FIX"
+	run node "$FIX"
+	[[ "$status" -eq 0 ]]
+	assert_idempotent "$PATCH_DIR/linux-notetaker-theme.sh" "$FIX"
+}
+
+@test "notetaker-theme: refuses a non-Notetaker window" {
+	cat > "$FIX" <<'JS'
+const t={title:"Flow Hub"};const n=new BrowserWindow(t);
+JS
+	run bash "$PATCH_DIR/linux-notetaker-theme.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_NOTETAKER_THEME' "$FIX"
+}
+
 @test "treat-as-windows: widens the isWindows bind to include linux, honest bridge" {
 	cat > "$FIX" <<'JS'
 const y="undefined"!=typeof window?window.electron:void 0,$=y?.platform?.isMacOS??!1,x=y?.platform?.isWindows??!1,k="2025-03-01";

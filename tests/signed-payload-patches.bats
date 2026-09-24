@@ -7,7 +7,7 @@
 	local main="$copy/.webpack/main/index.js"
 	[[ ! -f "$WISPR_FLOW_AUDIT_APP/.webpack/main/index.js.orig" ]] \
 		|| cp "$WISPR_FLOW_AUDIT_APP/.webpack/main/index.js.orig" "$main"
-	for patch in helper-resolver.sh mac-gates.sh helper-env.sh linux-window-frame.sh linux-hub-viewport.sh linux-deeplink.sh linux-status-bridge.sh; do
+	for patch in helper-resolver.sh mac-gates.sh helper-env.sh linux-window-frame.sh linux-hub-viewport.sh linux-notetaker-theme.sh linux-deeplink.sh linux-status-bridge.sh; do
 		bash "$BATS_TEST_DIRNAME/../scripts/patches/$patch" "$main"
 	done
 	for renderer in "$copy"/.webpack/renderer/*/index.js; do

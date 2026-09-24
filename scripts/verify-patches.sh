@@ -47,6 +47,7 @@ MARKERS=(
   "renderer-chrome: linux->win32 platform-class remap|F|WISPR_LINUX_WIN32_CHROME"
   "window-frame: linux frameless window branch|F|WISPR_LINUX_FRAMELESS"
   "hub-viewport: Flow Hub work-area and onboarding safety|F|WISPR_LINUX_HUB_VIEWPORT"
+  "notetaker theme: system dark preference and accessible contrast|F|WISPR_LINUX_NOTETAKER_THEME"
   "treat-as-windows: linux widens renderer isWindows bind|F|WISPR_LINUX_RENDERER_ISWIN"
   "deeplink: linux cold-start argv parse|F|WISPR_LINUX_DEEPLINK"
   "status bridge: unconditional Electron-main bootstrap|F|WISPR_LINUX_STATUS_BOOTSTRAP"
