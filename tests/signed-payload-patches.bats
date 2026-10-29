@@ -7,7 +7,7 @@
 	local main="$copy/.webpack/main/index.js"
 	[[ ! -f "$WISPR_FLOW_AUDIT_APP/.webpack/main/index.js.orig" ]] \
 		|| cp "$WISPR_FLOW_AUDIT_APP/.webpack/main/index.js.orig" "$main"
-	for patch in helper-resolver.sh mac-gates.sh helper-env.sh linux-window-frame.sh linux-hub-viewport.sh linux-deeplink.sh linux-status-bridge.sh; do
+	for patch in helper-resolver.sh mac-gates.sh helper-env.sh linux-window-frame.sh linux-hub-viewport.sh linux-deeplink.sh linux-status-bridge.sh linux-dictation-completion.sh; do
 		bash "$BATS_TEST_DIRNAME/../scripts/patches/$patch" "$main"
 	done
 	for renderer in "$copy"/.webpack/renderer/*/index.js; do
@@ -42,7 +42,7 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const source = fs.readFileSync(process.argv[2], "utf8");
 
-const calls = [], publications = [];
+const calls = [], publications = [], fail = {}, sentinel = { value: null };
 let toggle;
 const context = {
   e: { app: { whenReady: () => Promise.resolve() }, showInactive: () => {} },
@@ -50,7 +50,11 @@ const context = {
   p: { ZZ: { status: "Idle" } },
   S: { ZZ: { status: "Idle", isLocked: false } },
   c: { _W: { Idle: "Idle", Dismissed: "Dismissed", Listening: "Listening", Processing: "Processing", Error: "Error" }, W5: { UserActionEscape: "user_action_escape" }, B8: ["Listening", "Processing"] , SB: { Deeplink: "wispr-flow:" } },
-  z: { Qw: async () => calls.push("start"), US: async () => calls.push("stop"), t3: reason => calls.push(`dismiss:${reason}`) },
+  z: {
+    Qw: async () => { calls.push("start"); if (fail.start) throw new Error("start rejected"); context.S.ZZ.status = "Listening"; context.S.ZZ.isLocked = true; },
+    US: async () => { calls.push("stop"); context.S.ZZ.status = "Idle"; context.S.ZZ.isLocked = false; },
+    t3: reason => { calls.push(`dismiss:${reason}`); if (fail.dismiss === "throw") throw new Error("dismiss threw"); if (fail.dismiss === "inert") return; sentinel.value = null; context.S.ZZ.status = "Dismissed"; context.S.ZZ.isLocked = false; },
+  },
   y: { H8: true }, J: false, F: { setEnabled: () => {} }, ie: { RA: { statusWindow: { isDestroyed: () => false, showInactive: () => {} } } }, noop: () => {},
   globalThis: {
     __wisprStatusSnapshot: state => ({ state: state.toLowerCase(), hands_free: context.S.ZZ.isLocked }),
@@ -62,27 +66,65 @@ vm.createContext(context);
 vm.runInContext(source, context);
 (async () => {
   assert.equal(typeof toggle, "function");
+  const run = async (state, locked, owner = null) => {
+    calls.length = 0;
+    context.S.ZZ.status = state;
+    context.S.ZZ.isLocked = locked;
+    context.globalThis.__wisprDictationOwner = owner;
+    return { ...await toggle() };
+  };
   for (const [state, locked, expected, mode] of [
     ["Idle", false, "start", true],
     ["Dismissed", false, "start", true],
     ["Listening", true, "stop", false],
   ]) {
-    calls.length = 0;
-    context.S.ZZ.status = state;
-    context.S.ZZ.isLocked = locked;
-    assert.deepEqual({ ...await toggle() }, { hands_free: mode });
+    assert.deepEqual(await run(state, locked), { hands_free: mode });
     assert.deepEqual(calls, [expected]);
   }
-  calls.length = 0;
-  context.S.ZZ.status = "Error";
-  context.S.ZZ.isLocked = true;
-  assert.deepEqual({ ...await toggle() }, { hands_free: true });
+  // Error leaves through the real dismiss, then starts: final state recording, sentinel cleared.
+  sentinel.value = "stale-session";
+  assert.deepEqual(await run("Error", false), { hands_free: true });
   assert.deepEqual(calls, ["dismiss:user_action_escape", "start"]);
+  assert.equal(context.S.ZZ.status, "Listening");
+  assert.equal(context.S.ZZ.isLocked, true);
+  assert.equal(sentinel.value, null);
+  // Repeated toggle after recovery stops the recording it started.
+  calls.length = 0;
+  assert.deepEqual({ ...await toggle() }, { hands_free: false });
+  assert.deepEqual(calls, ["stop"]);
+  assert.equal(context.S.ZZ.status, "Idle");
+  // Dismiss throws: no start, the error propagates to the bridge as action_failed.
+  fail.dismiss = "throw";
+  await assert.rejects(run("Error", false), /dismiss threw/);
+  assert.deepEqual(calls, ["dismiss:user_action_escape"]);
+  assert.equal(context.S.ZZ.status, "Error");
+  // Dismiss leaves the status in Error: no start, explicit refusal.
+  fail.dismiss = "inert";
+  assert.deepEqual(await run("Error", false), { ok: false, error: "not_dismissed" });
+  assert.deepEqual(calls, ["dismiss:user_action_escape"]);
+  delete fail.dismiss;
+  // Start rejects after a real dismiss: Dismissed, not Error, and the next toggle starts.
+  fail.start = true;
+  await assert.rejects(run("Error", false), /start rejected/);
+  assert.deepEqual(calls, ["dismiss:user_action_escape", "start"]);
+  assert.equal(context.S.ZZ.status, "Dismissed");
+  delete fail.start;
+  assert.deepEqual(await run("Dismissed", false), { hands_free: true });
+  assert.deepEqual(calls, ["start"]);
+  // A pipeline still owning completion refuses Error and Dismissed starts, touching nothing.
+  for (const state of ["Error", "Dismissed"]) {
+    assert.deepEqual(await run(state, false, { uuid: "A" }), { ok: false, error: "busy" });
+    assert.deepEqual(calls, []);
+    assert.equal(context.S.ZZ.status, state);
+  }
+  // From Idle the owner is in its tail: a new capture starts.
+  assert.deepEqual(await run("Idle", false, { uuid: "A" }), { hands_free: true });
+  assert.deepEqual(calls, ["start"]);
+  // A locked recording stops even while an older pipeline owns completion.
+  assert.deepEqual(await run("Listening", true, { uuid: "A" }), { hands_free: false });
+  assert.deepEqual(calls, ["stop"]);
   for (const [state, locked] of [["Listening", false], ["Processing", true]]) {
-    calls.length = 0;
-    context.S.ZZ.status = state;
-    context.S.ZZ.isLocked = locked;
-    assert.deepEqual({ ...await toggle() }, { ok: false, error: "not_toggleable" });
+    assert.deepEqual(await run(state, locked), { ok: false, error: "not_toggleable" });
     assert.deepEqual(calls, []);
   }
   context.S.ZZ.status = "Error";

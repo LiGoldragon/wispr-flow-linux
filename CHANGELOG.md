@@ -30,6 +30,14 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   Electron-main bridge startup, before clients can reach the control socket.
 - Nix package `1.6.774+criomos.11` routes meter messages at the recorder
   handler entry, before upstream raw-audio decoding reads their array payload.
+- Nix package `1.6.774+criomos.12` serializes dictation completion: a
+  recording that finishes while the previous dictation's pipeline still owns
+  completion waits for it instead of being dropped as a duplicate and timing
+  out into Error, and a superseded pipeline tail no longer writes the live
+  session's timing or sends telemetry built from it. The hands-free toggle
+  leaves Error through the app's own dismiss, refuses `busy` while a pipeline
+  still owns completion, and refuses `not_dismissed` if the dismiss did not
+  land.
 
 ### Fixed
 

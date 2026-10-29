@@ -278,6 +278,8 @@ runCommand "wispr-flow-status-bootstrap"
 
       const calls = [];
       const publications = [];
+      const fail = {};
+      const sentinel = { value: null };
       let toggle;
       const hookContext = {
         S: { ZZ: { status: "Idle", isLocked: false } },
@@ -293,9 +295,25 @@ runCommand "wispr-flow-status-bootstrap"
           SB: { Deeplink: "wispr-flow:" },
         },
         z: {
-          Qw: async () => calls.push("start"),
-          US: async () => calls.push("stop"),
-          t3: reason => calls.push(`dismiss:''${reason}`),
+          Qw: async () => {
+            calls.push("start");
+            if (fail.start) throw new Error("start rejected");
+            hookContext.S.ZZ.status = "Listening";
+            hookContext.S.ZZ.isLocked = true;
+          },
+          US: async () => {
+            calls.push("stop");
+            hookContext.S.ZZ.status = "Idle";
+            hookContext.S.ZZ.isLocked = false;
+          },
+          t3: reason => {
+            calls.push(`dismiss:''${reason}`);
+            if (fail.dismiss === "throw") throw new Error("dismiss threw");
+            if (fail.dismiss === "inert") return;
+            sentinel.value = null;
+            hookContext.S.ZZ.status = "Dismissed";
+            hookContext.S.ZZ.isLocked = false;
+          },
         },
         e: true,
       };
@@ -312,30 +330,51 @@ runCommand "wispr-flow-status-bootstrap"
       assert.equal(typeof toggle, "function",
         "signed payload did not register its control hook");
 
+      const run = async (state, locked, owner = null) => {
+        calls.length = 0;
+        hookContext.S.ZZ.status = state;
+        hookContext.S.ZZ.isLocked = locked;
+        hookContext.__wisprDictationOwner = owner;
+        return { ...await toggle() };
+      };
       for (const [state, locked, action, handsFree] of [
         ["Idle", false, "start", true],
         ["Dismissed", false, "start", true],
         ["Listening", true, "stop", false],
       ]) {
-        calls.length = 0;
-        hookContext.S.ZZ.status = state;
-        hookContext.S.ZZ.isLocked = locked;
-        assert.deepEqual({ ...await toggle() }, { hands_free: handsFree });
+        assert.deepEqual(await run(state, locked), { hands_free: handsFree });
         assert.deepEqual(calls, [action]);
       }
-      calls.length = 0;
-      hookContext.S.ZZ.status = "Error";
-      hookContext.S.ZZ.isLocked = true;
-      assert.deepEqual({ ...await toggle() }, { hands_free: true });
+      sentinel.value = "stale-session";
+      assert.deepEqual(await run("Error", false), { hands_free: true });
       assert.deepEqual(calls, ["dismiss:user_action_escape", "start"]);
+      assert.equal(hookContext.S.ZZ.status, "Listening");
+      assert.equal(sentinel.value, null);
+      calls.length = 0;
+      assert.deepEqual({ ...await toggle() }, { hands_free: false });
+      assert.deepEqual(calls, ["stop"]);
+      fail.dismiss = "throw";
+      await assert.rejects(run("Error", false), /dismiss threw/);
+      assert.deepEqual(calls, ["dismiss:user_action_escape"]);
+      fail.dismiss = "inert";
+      assert.deepEqual(await run("Error", false), { ok: false, error: "not_dismissed" });
+      assert.deepEqual(calls, ["dismiss:user_action_escape"]);
+      delete fail.dismiss;
+      fail.start = true;
+      await assert.rejects(run("Error", false), /start rejected/);
+      assert.equal(hookContext.S.ZZ.status, "Dismissed");
+      delete fail.start;
+      for (const state of ["Error", "Dismissed"]) {
+        assert.deepEqual(await run(state, false, { uuid: "A" }), { ok: false, error: "busy" });
+        assert.deepEqual(calls, []);
+      }
+      assert.deepEqual(await run("Idle", false, { uuid: "A" }), { hands_free: true });
+      assert.deepEqual(await run("Listening", true, { uuid: "A" }), { hands_free: false });
       for (const [state, locked] of [
         ["Listening", false],
         ["Processing", true],
       ]) {
-        calls.length = 0;
-        hookContext.S.ZZ.status = state;
-        hookContext.S.ZZ.isLocked = locked;
-        assert.deepEqual({ ...await toggle() }, {
+        assert.deepEqual(await run(state, locked), {
           ok: false,
           error: "not_toggleable",
         });

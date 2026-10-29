@@ -60,6 +60,8 @@ MARKERS=(
   "status bridge: renderer scalar-meter validation|F|WISPR_LINUX_STATUS_METER_RENDERER"
   "status bridge: Status window suppressed on Linux|F|WISPR_LINUX_STATUS_WINDOW_SUPPRESSED"
   "status bridge: dictation cannot re-show Status window|F|WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED"
+  "dictation completion: serialized behind the owning pipeline|F|WISPR_LINUX_DICTATION_COMPLETION_SERIAL"
+  "dictation completion: superseded tail leaves the live session|F|WISPR_LINUX_DICTATION_TAIL_OWNED"
 )
 
 missing=0
