@@ -289,11 +289,13 @@ runCommand "wispr-flow-status-bootstrap"
             Processing: "Processing",
             Error: "Error",
           },
+          W5: { UserActionEscape: "user_action_escape" },
           SB: { Deeplink: "wispr-flow:" },
         },
         z: {
           Qw: async () => calls.push("start"),
           US: async () => calls.push("stop"),
+          t3: reason => calls.push(`dismiss:''${reason}`),
         },
         e: true,
       };
@@ -321,10 +323,14 @@ runCommand "wispr-flow-status-bootstrap"
         assert.deepEqual({ ...await toggle() }, { hands_free: handsFree });
         assert.deepEqual(calls, [action]);
       }
+      calls.length = 0;
+      hookContext.S.ZZ.status = "Error";
+      hookContext.S.ZZ.isLocked = true;
+      assert.deepEqual({ ...await toggle() }, { hands_free: true });
+      assert.deepEqual(calls, ["dismiss:user_action_escape", "start"]);
       for (const [state, locked] of [
         ["Listening", false],
         ["Processing", true],
-        ["Error", true],
       ]) {
         calls.length = 0;
         hookContext.S.ZZ.status = state;
@@ -335,6 +341,7 @@ runCommand "wispr-flow-status-bootstrap"
         });
         assert.deepEqual(calls, []);
       }
+      hookContext.S.ZZ.status = "Error";
       vm.runInContext(lockExpression, hookContext);
       assert.deepEqual({ ...publications.pop() }, {
         state: "Error",

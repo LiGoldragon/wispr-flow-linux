@@ -27,6 +27,7 @@ if grep -q "$MARKER" "$BUNDLE"; then
     && grep -qF 'globalThis.__wisprStatusToggleHandsFree=async()=>' "$BUNDLE" \
     && grep -qF 'globalThis.__wisprStatusBridge?.setToggleHandsFree(globalThis.__wisprStatusToggleHandsFree)' "$BUNDLE" \
     && grep -qF 'await(0,z.Qw)(c.SB.Deeplink)' "$BUNDLE" \
+    && grep -qF 'if(e===c._W.Error)return(0,z.t3)(c.W5.UserActionEscape),' "$BUNDLE" \
     && grep -qF 'await(0,z.US)(c.SB.Deeplink)' "$BUNDLE" \
     && grep -qF '"linux"!==process.platform&&e.showInactive()' "$BUNDLE" \
     && node --check "$BUNDLE" \
@@ -48,6 +49,15 @@ def replace_once(anchor, replacement, label):
         raise SystemExit(f"ERROR: expected one {label} anchor, found {count}.")
     return data.replace(anchor, replacement, 1)
 
+# The Error branch of the control hook dismisses through the app's own
+# tryDismissDictation (export t3 of the module bound as z) with the Escape
+# reason (W5 of the enum module bound as c), exactly as the Escape key does.
+for anchor, label in (('US:()=>ot,a1:()=>nt,t3:()=>Xe', 'dismiss export'),
+                      ('e.UserActionEscape="user_action_escape"', 'escape dismiss reason'),
+                      ('z=s(63205)', 'dictation action module binding'),
+                      ('c=s(89424)', 'dictation enum module binding')):
+    if data.count(anchor) != 1:
+        raise SystemExit(f"ERROR: expected one {label} anchor, found {data.count(anchor)}.")
 status_setter = 'qe=(e,t=!0,n={})=>{'
 data = replace_once(status_setter, 'qe=(e,t=!0,n={})=>{/*WISPR_LINUX_STATUS_LIFECYCLE*/', "authoritative status setter")
 
@@ -59,7 +69,7 @@ status_assignment = 'const i=p.ZZ.status;p.ZZ.status=e,p.ZZ.statusLastUpdatedTim
 data = replace_once(status_assignment, 'const i=p.ZZ.status;p.ZZ.status=e,p.ZZ.statusLastUpdatedTime=Date.now(),"Listening"!==e&&"Initializing"!==e&&globalThis.__wisprStatusBridge?.publishMeter({capture:"unavailable"}),globalThis.__wisprStatusBridge?.publish(globalThis.__wisprStatusSnapshot(e))/*WISPR_LINUX_STATUS_PUBLICATION*/;', "status publication")
 
 hands_free = 'const Q=()=>{try{const e=S.ZZ.status;'
-control_hook = '''/*WISPR_LINUX_STATUS_CONTROL_BEGIN*/globalThis.__wisprStatusToggleHandsFree=async()=>{const e=S.ZZ.status;if(e===c._W.Idle||e===c._W.Dismissed)return await(0,z.Qw)(c.SB.Deeplink),{hands_free:!0};if(e===c._W.Listening&&S.ZZ.isLocked)return await(0,z.US)(c.SB.Deeplink),{hands_free:!1};return{ok:!1,error:"not_toggleable"}},globalThis.__wisprStatusBridge?.setToggleHandsFree(globalThis.__wisprStatusToggleHandsFree);/*WISPR_LINUX_STATUS_CONTROL_END*//*WISPR_LINUX_STATUS_CONTROL*/const Q=()=>{try{const e=S.ZZ.status;'''
+control_hook = '''/*WISPR_LINUX_STATUS_CONTROL_BEGIN*/globalThis.__wisprStatusToggleHandsFree=async()=>{const e=S.ZZ.status;if(e===c._W.Error)return(0,z.t3)(c.W5.UserActionEscape),await(0,z.Qw)(c.SB.Deeplink),{hands_free:!0};if(e===c._W.Idle||e===c._W.Dismissed)return await(0,z.Qw)(c.SB.Deeplink),{hands_free:!0};if(e===c._W.Listening&&S.ZZ.isLocked)return await(0,z.US)(c.SB.Deeplink),{hands_free:!1};return{ok:!1,error:"not_toggleable"}},globalThis.__wisprStatusBridge?.setToggleHandsFree(globalThis.__wisprStatusToggleHandsFree);/*WISPR_LINUX_STATUS_CONTROL_END*//*WISPR_LINUX_STATUS_CONTROL*/const Q=()=>{try{const e=S.ZZ.status;'''
 data = replace_once(hands_free, control_hook, "actual hands-free action")
 
 lock_mutator = re.compile(r'S\.ZZ\.isLocked=(?P<value>[^,;]+)(?P<delimiter>[,;])')

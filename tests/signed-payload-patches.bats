@@ -34,6 +34,7 @@ globalThis.setLocked=e=>{S.ZZ.isLocked=e;};
 const Q=()=>{try{const e=S.ZZ.status;}catch(_){}};
 const ordinaryStatusShow=()=>{y.H8&&!J&&F.setEnabled(!0),e.showInactive(),y.H8&&noop()};
 globalThis.recover=r=(e=y.H8)=>{const t=ie.RA.statusWindow;if(!t||t.isDestroyed())return n().error("Status window is not available or destroyed. Recreating.");t.showInactive()};
+const dismissExport={US:()=>ot,a1:()=>nt,t3:()=>Xe},escapeReason=e=>{e.UserActionEscape="user_action_escape"},bindings=s=>{const z=s(63205),c=s(89424)};
 JS
 	cat > "$driver" <<'JS'
 const assert = require("node:assert/strict");
@@ -48,8 +49,8 @@ const context = {
   n: () => ({ error: () => {}, warn: () => {} }),
   p: { ZZ: { status: "Idle" } },
   S: { ZZ: { status: "Idle", isLocked: false } },
-  c: { _W: { Idle: "Idle", Dismissed: "Dismissed", Listening: "Listening", Processing: "Processing", Error: "Error" }, B8: ["Listening", "Processing"] , SB: { Deeplink: "wispr-flow:" } },
-  z: { Qw: async () => calls.push("start"), US: async () => calls.push("stop") },
+  c: { _W: { Idle: "Idle", Dismissed: "Dismissed", Listening: "Listening", Processing: "Processing", Error: "Error" }, W5: { UserActionEscape: "user_action_escape" }, B8: ["Listening", "Processing"] , SB: { Deeplink: "wispr-flow:" } },
+  z: { Qw: async () => calls.push("start"), US: async () => calls.push("stop"), t3: reason => calls.push(`dismiss:${reason}`) },
   y: { H8: true }, J: false, F: { setEnabled: () => {} }, ie: { RA: { statusWindow: { isDestroyed: () => false, showInactive: () => {} } } }, noop: () => {},
   globalThis: {
     __wisprStatusSnapshot: state => ({ state: state.toLowerCase(), hands_free: context.S.ZZ.isLocked }),
@@ -72,13 +73,19 @@ vm.runInContext(source, context);
     assert.deepEqual({ ...await toggle() }, { hands_free: mode });
     assert.deepEqual(calls, [expected]);
   }
-  for (const [state, locked] of [["Listening", false], ["Processing", true], ["Error", true]]) {
+  calls.length = 0;
+  context.S.ZZ.status = "Error";
+  context.S.ZZ.isLocked = true;
+  assert.deepEqual({ ...await toggle() }, { hands_free: true });
+  assert.deepEqual(calls, ["dismiss:user_action_escape", "start"]);
+  for (const [state, locked] of [["Listening", false], ["Processing", true]]) {
     calls.length = 0;
     context.S.ZZ.status = state;
     context.S.ZZ.isLocked = locked;
     assert.deepEqual({ ...await toggle() }, { ok: false, error: "not_toggleable" });
     assert.deepEqual(calls, []);
   }
+  context.S.ZZ.status = "Error";
   context.globalThis.setLocked(true);
   assert.deepEqual({ ...publications.pop() }, { state: "error", hands_free: true });
 })().catch(error => { console.error(error); process.exitCode = 1; });
