@@ -14,6 +14,11 @@ if grep -q "$MARKER" "$BUNDLE"; then
 	grep -qF 'globalThis.__wisprDictationBusy' "$BUNDLE" \
 		&& grep -qF 'globalThis.__wisprMarkDictationTail' "$BUNDLE" \
 		&& grep -qF 'globalThis.__wisprAbortDictationOwner' "$BUNDLE" \
+		&& grep -qF 'WISPR_LINUX_DICTATION_IDLE_GUARD_BEGIN' "$BUNDLE" \
+		&& grep -qF 'WISPR_LINUX_DICTATION_BUSY_PTT_BEGIN' "$BUNDLE" \
+		&& grep -qF 'WISPR_LINUX_DICTATION_BUSY_LENS_BEGIN' "$BUNDLE" \
+		&& grep -qF 'WISPR_LINUX_DICTATION_BUSY_INSTRUCT_BEGIN' "$BUNDLE" \
+		&& grep -qF 'WISPR_LINUX_DICTATION_BUSY_POPO_BEGIN' "$BUNDLE" \
 		&& grep -qF 'globalThis.__wisprReleaseDictationOwner?.(n)' "$BUNDLE" \
 		&& node --check "$BUNDLE" \
 		&& exit 0
@@ -73,26 +78,30 @@ def module_replace_once(anchor: str, replacement: str, label: str) -> None:
 # is deferred while an owner exists, so every ordinary UI entry point continues
 # to see Processing until the matching completion pipeline has fully cleaned up.
 status_setter = 'qe=(e,t=!0,n={})=>{/*WISPR_LINUX_STATUS_LIFECYCLE*/'
-status_guard = status_setter + '''if(e===O._W.Idle&&globalThis.__wisprDictationAdmission?.owner)return globalThis.__wisprDictationAdmission.pendingIdle=()=>qe(e,t,n),void 0;if((e===O._W.Error||e===O._W.Dismissed)&&globalThis.__wisprDictationAdmission?.owner)globalThis.__wisprDictationAdmission.pendingIdle=null;'''
+status_guard = status_setter + '''/*WISPR_LINUX_DICTATION_IDLE_GUARD_BEGIN*/if(e===O._W.Idle&&globalThis.__wisprDictationAdmission?.owner)return Le(),(0,R.W3)(Me),Me=null,globalThis.__wisprDictationAdmission.pendingIdle=()=>qe(e,t,n),void 0;if((e===O._W.Error||e===O._W.Dismissed)&&globalThis.__wisprDictationAdmission?.owner)globalThis.__wisprDictationAdmission.pendingIdle=null;/*WISPR_LINUX_DICTATION_IDLE_GUARD_END*/'''
 module_replace_once(status_setter, status_guard, 'status setter')
 
 processing_predicate = 'Pe=()=>O.cD.includes(p.ZZ.status),'
-admission = '''_wisprDictationAdmissionInit=(/*WISPR_LINUX_DICTATION_ADMISSION*/globalThis.__wisprDictationAdmission??={owner:null,pendingIdle:null},globalThis.__wisprDictationBusy??=()=>null!==globalThis.__wisprDictationAdmission.owner,globalThis.__wisprReserveDictationOwner??=(e=>{const t=globalThis.__wisprDictationAdmission;return null===t.owner&&(t.owner={uuid:e,phase:"capture"},!0)}),globalThis.__wisprMarkDictationTail??=(e=>{const t=globalThis.__wisprDictationAdmission;return t.owner?.uuid===e&&(t.owner.phase="tail",!0)}),globalThis.__wisprReleaseDictationOwner??=(e=>{const t=globalThis.__wisprDictationAdmission;if(t.owner?.uuid!==e)return!1;t.owner=null;const n=t.pendingIdle;return t.pendingIdle=null,n?.(),!0}),globalThis.__wisprAbortDictationOwner??=(e=>{const t=globalThis.__wisprDictationAdmission;return t.owner?.uuid===e&&"capture"===t.owner.phase&&globalThis.__wisprReleaseDictationOwner(e)}),0),Pe=()=>O.cD.includes(p.ZZ.status),'''
+admission = '''_wisprDictationAdmissionInit=(/*WISPR_LINUX_DICTATION_ADMISSION*/globalThis.__wisprDictationAdmission??={owner:null,pendingIdle:null},globalThis.__wisprDictationBusy??=()=>null!==globalThis.__wisprDictationAdmission.owner,globalThis.__wisprReserveDictationOwner??=(e=>{const t=globalThis.__wisprDictationAdmission;return null===t.owner&&(t.owner={uuid:e,phase:"capture"},!0)}),globalThis.__wisprMarkDictationTail??=(e=>{const t=globalThis.__wisprDictationAdmission;return null!==t.owner&&t.owner.uuid===e&&(t.owner.phase="tail",!0)}),globalThis.__wisprReleaseDictationOwner??=(e=>{const t=globalThis.__wisprDictationAdmission;if(null===t.owner||t.owner.uuid!==e)return!1;t.owner=null;const n=t.pendingIdle;return t.pendingIdle=null,n?.(),!0}),globalThis.__wisprAbortDictationOwner??=(e=>{const t=globalThis.__wisprDictationAdmission;return null!==t.owner&&t.owner.uuid===e&&"capture"===t.owner.phase&&globalThis.__wisprReleaseDictationOwner(e)}),0),Pe=()=>O.cD.includes(p.ZZ.status),'''
 module_replace_once(processing_predicate, admission, 'processing predicate')
 
-# These are the four user-facing wrappers. The refusal precedes their mode,
-# lock, shortcut and UI mutations.
-for anchor, label in (
-    ('Qe=(e=O.SB.Keyboard,t,n)=>{', 'PTT entry'),
-    ('He=(e,t)=>{', 'Lens entry'),
-    ('Ve=(e,t)=>{', 'Instruct entry'),
-    ('Ze=(e,t,n)=>{', 'POPO entry'),
+# The four user-facing wrappers retain their existing Processing branch, which
+# emits TranscriptCurrentlyProcessing once. For owner states outside that
+# branch, refuse before each wrapper's first mode/capture mutation and reuse the
+# same notification.
+busy_ui = 'if(globalThis.__wisprDictationBusy())return o().warn("Dictation admission is busy while the previous dictation finishes"),Date.now()-ue.tL.lastActionTime>u.DICTATION_DEBOUNCE_DELAY&&be(C.Eg.TranscriptCurrentlyProcessing),{accepted:!1,error:"busy"};'
+for anchor, label, marker in (
+    ('void(Date.now()-ue.tL.lastActionTime>u.DICTATION_DEBOUNCE_DELAY&&be(C.Eg.TranscriptCurrentlyProcessing));if(!(0,I.P$)', 'PTT entry', 'PTT'),
+    ('void(Date.now()-ue.tL.lastActionTime>u.DICTATION_DEBOUNCE_DELAY&&be(C.Eg.TranscriptCurrentlyProcessing));if(!p.ZZ.isLocked)', 'Lens entry', 'LENS'),
+    ('void(Date.now()-ue.tL.lastActionTime>u.DICTATION_DEBOUNCE_DELAY&&be(C.Eg.TranscriptCurrentlyProcessing));const r=Date.now()-Ne', 'Instruct entry', 'INSTRUCT'),
+    ('void(Date.now()-ue.tL.lastActionTime>u.DICTATION_DEBOUNCE_DELAY&&be(C.Eg.TranscriptCurrentlyProcessing));if(O.B8.includes', 'POPO entry', 'POPO'),
 ):
-    module_replace_once(
-        anchor,
-        anchor + 'if(globalThis.__wisprDictationBusy())return{accepted:!1,error:"busy"};',
-        label,
+    first, second = anchor.split(';', 1)
+    replacement = (
+        first + ';/*WISPR_LINUX_DICTATION_BUSY_' + marker + '_BEGIN*/' +
+        busy_ui + '/*WISPR_LINUX_DICTATION_BUSY_' + marker + '_END*/' + second
     )
+    module_replace_once(anchor, replacement, label)
 
 # CO is the single capture provider. It independently refuses direct callers.
 provider = 'it=(e,t,n)=>{'
@@ -174,7 +183,7 @@ if data.count(route_start) != 2:
     )
 data = data.replace(
     route_start,
-    'if(!Ti.KB.includes(ci.ZZ.status)||globalThis.__wisprDictationBusy())break;ci.ZZ.isInstructMode=',
+    'if(!Ti.KB.includes(ci.ZZ.status))break;if(globalThis.__wisprDictationBusy()){rr().warn(`[${n}] dictation admission busy`,{customAttributes:{requestType:t.type,error:"busy"}});break}ci.ZZ.isInstructMode=',
 )
 
 # BLE has local capture state of its own; refuse before touching it.

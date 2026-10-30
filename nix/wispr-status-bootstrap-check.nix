@@ -62,10 +62,11 @@ runCommand "wispr-flow-status-bootstrap"
       assert.equal(source.split(admissionMarker).length - 1, 1,
         "one packaged dictation admission implementation");
       for (const snippet of [
-        'Qe=(e=O.SB.Keyboard,t,n)=>{if(globalThis.__wisprDictationBusy())return{accepted:!1,error:"busy"};',
-        'He=(e,t)=>{if(globalThis.__wisprDictationBusy())return{accepted:!1,error:"busy"};',
-        'Ve=(e,t)=>{if(globalThis.__wisprDictationBusy())return{accepted:!1,error:"busy"};',
-        'Ze=(e,t,n)=>{if(globalThis.__wisprDictationBusy())return{accepted:!1,error:"busy"};',
+        '/*WISPR_LINUX_DICTATION_IDLE_GUARD_BEGIN*/',
+        '/*WISPR_LINUX_DICTATION_BUSY_PTT_BEGIN*/',
+        '/*WISPR_LINUX_DICTATION_BUSY_LENS_BEGIN*/',
+        '/*WISPR_LINUX_DICTATION_BUSY_INSTRUCT_BEGIN*/',
+        '/*WISPR_LINUX_DICTATION_BUSY_POPO_BEGIN*/',
         'it=(e,t,n)=>{if(globalThis.__wisprDictationBusy())return{accepted:!1,error:"busy"};const c=crypto.randomUUID();if(!globalThis.__wisprReserveDictationOwner(c))return{accepted:!1,error:"busy"};',
         'catch(e){throw Xe(O.W5.UserActionEscape),e}finally{_wisprAdmissionAccepted||globalThis.__wisprAbortDictationOwner?.(c)}',
         'globalThis.__wisprMarkDictationTail?.(n),Lt=!0',
@@ -77,8 +78,11 @@ runCommand "wispr-flow-status-bootstrap"
           "one packaged admission anchor: " + snippet.slice(0, 48));
       }
       assert.equal(source.split(
-        'if(!Ti.KB.includes(ci.ZZ.status)||globalThis.__wisprDictationBusy())break;',
+        'if(!Ti.KB.includes(ci.ZZ.status))break;if(globalThis.__wisprDictationBusy()){',
       ).length - 1, 2, "both extension routes refuse before mutation");
+      assert.equal(source.split(
+        'dictation admission busy`,{customAttributes:{requestType:t.type,error:"busy"}});break}',
+      ).length - 1, 2, "both one-way extension routes report a structured busy refusal");
       assert.equal(source.split(
         'R=()=>{if(globalThis.__wisprDictationBusy())return{accepted:!1,error:"busy"};N(),E=!0',
       ).length - 1, 1, "BLE refuses before local capture mutation");
@@ -96,6 +100,12 @@ runCommand "wispr-flow-status-bootstrap"
       admissionContext.globalThis = admissionContext;
       vm.createContext(admissionContext);
       vm.runInContext("(" + admissionExpression + ")", admissionContext);
+      assert.equal(admissionContext.__wisprMarkDictationTail(undefined), false,
+        "a Testing/missing-UUID completion without an owner is harmless");
+      assert.equal(admissionContext.__wisprAbortDictationOwner(undefined), false,
+        "a Testing/missing-UUID abort without an owner is harmless");
+      assert.equal(admissionContext.__wisprReleaseDictationOwner(undefined), false,
+        "a Testing/missing-UUID release without an owner is harmless");
       assert.equal(admissionContext.__wisprReserveDictationOwner("old"), true);
       assert.equal(admissionContext.__wisprDictationBusy(), true);
       assert.equal(admissionContext.__wisprReserveDictationOwner("new"), false,
@@ -124,6 +134,120 @@ runCommand "wispr-flow-status-bootstrap"
       })(), /cleanup/);
       assert.equal(admissionContext.__wisprDictationBusy(), false,
         "outer cleanup failure still releases the exact owner");
+
+      assert.equal(admissionContext.__wisprReserveDictationOwner("newer"), true);
+      assert.equal(admissionContext.__wisprMarkDictationTail("stale"), false);
+      assert.equal(admissionContext.__wisprAbortDictationOwner("stale"), false);
+      assert.equal(admissionContext.__wisprReleaseDictationOwner("stale"), false,
+        "a stale completion/cancel/finally cannot release a newer owner");
+      assert.equal(admissionContext.__wisprDictationAdmission.owner.uuid, "newer");
+      assert.equal(admissionContext.__wisprAbortDictationOwner("newer"), true);
+
+      const completionAdmission =
+        'c.ZZ.status===Le._W.Testing?!globalThis.__wisprDictationBusy():void 0!==n&&n===c.ZZ.uuid&&globalThis.__wisprDictationAdmission?.owner?.uuid===n';
+      assert.equal(source.split(completionAdmission).length - 1, 1,
+        "one actual Testing/production completion-admission predicate");
+      const completionContext = {
+        c: { ZZ: { status: "Testing", uuid: undefined } },
+        Le: { _W: { Testing: "Testing" } }, n: undefined,
+      };
+      completionContext.globalThis = completionContext;
+      completionContext.__wisprDictationBusy = () => false;
+      completionContext.__wisprDictationAdmission = { owner: null };
+      vm.createContext(completionContext);
+      assert.equal(vm.runInContext(completionAdmission, completionContext), true,
+        "actual Testing/missing-UUID path remains admitted without an owner");
+      // Its next patched helper call is safe; the no-owner assertion above
+      // executes that exact helper body with undefined.
+
+      const extractMainMarker = (begin, end, label) => {
+        assert.equal(source.split(begin).length - 1, 1, "one " + label + " begin marker");
+        assert.equal(source.split(end).length - 1, 1, "one " + label + " end marker");
+        return source.slice(source.indexOf(begin) + begin.length, source.indexOf(end));
+      };
+      const idleGuard = extractMainMarker(
+        "/*WISPR_LINUX_DICTATION_IDLE_GUARD_BEGIN*/",
+        "/*WISPR_LINUX_DICTATION_IDLE_GUARD_END*/", "Idle guard");
+      let fakeNow = 0;
+      let nextTimer = 1;
+      const fakeTimers = new Map();
+      const schedule = (after, callback) => {
+        const id = nextTimer++;
+        fakeTimers.set(id, { at: fakeNow + after, callback });
+        return id;
+      };
+      const cancel = id => fakeTimers.delete(id);
+      const advance = milliseconds => {
+        fakeNow += milliseconds;
+        for (const [id, timer] of [...fakeTimers]) {
+          if (timer.at <= fakeNow) {
+            fakeTimers.delete(id);
+            timer.callback();
+          }
+        }
+      };
+      let processingErrors = 0;
+      const idlePublicationsActual = [];
+      let idleContext;
+      const processingTimer = schedule(24000, () => {
+        processingErrors += 1;
+        idleContext.qe("Error");
+      });
+      const notificationTimer = schedule(4000, () => idlePublicationsActual.push("processing-notification"));
+      idleContext = {
+        O: { _W: { Idle: "Idle", Error: "Error", Dismissed: "Dismissed" } },
+        R: { W3: cancel },
+        Me: notificationTimer,
+        Le: () => cancel(processingTimer),
+        publications: idlePublicationsActual,
+      };
+      idleContext.globalThis = idleContext;
+      idleContext.__wisprDictationAdmission = { owner: { uuid: "tail", phase: "tail" }, pendingIdle: null };
+      vm.createContext(idleContext);
+      vm.runInContext(
+        `qe=(e,t=!0,n={})=>{''${idleGuard}publications.push(e)}`,
+        idleContext,
+      );
+      idleContext.qe("Idle");
+      assert.equal(fakeTimers.has(processingTimer), false, "deferred successful Idle clears the 24s processing timer");
+      assert.equal(fakeTimers.has(notificationTimer), false, "deferred successful Idle clears the processing-notification timer");
+      assert.deepEqual(idlePublicationsActual, [], "Idle remains private while the tail owns state");
+      // Advancing a synthetic clock beyond the observed 73.7s history tail cannot
+      // invoke either cleared timer or publish Error.
+      advance(73700);
+      assert.equal(processingErrors, 0, "a 73.7s successful tail cannot time out after upstream completion");
+      assert.equal(idleContext.__wisprDictationAdmission.owner.uuid, "tail",
+        "the owner remains held throughout the delayed successful tail");
+      idleContext.__wisprDictationAdmission.owner = null;
+      const publishIdle = idleContext.__wisprDictationAdmission.pendingIdle;
+      idleContext.__wisprDictationAdmission.pendingIdle = null;
+      publishIdle();
+      assert.deepEqual(idlePublicationsActual, ["Idle"], "release publishes successful Idle exactly once");
+      idleContext.__wisprDictationAdmission.owner = { uuid: "error", phase: "tail" };
+      idleContext.__wisprDictationAdmission.pendingIdle = () => idlePublicationsActual.push("stale-idle");
+      idleContext.qe("Error");
+      assert.deepEqual(idlePublicationsActual, ["Idle", "Error"], "genuine Error is published unchanged");
+      assert.equal(idleContext.__wisprDictationAdmission.pendingIdle, null,
+        "genuine Error cancels a deferred success without releasing its owner");
+      assert.equal(idleContext.__wisprDictationAdmission.owner.uuid, "error");
+
+      for (const name of ["PTT", "LENS", "INSTRUCT", "POPO"]) {
+        const busyBody = extractMainMarker(
+          `/*WISPR_LINUX_DICTATION_BUSY_''${name}_BEGIN*/`,
+          `/*WISPR_LINUX_DICTATION_BUSY_''${name}_END*/`, name + " busy guard");
+        let notifications = 0;
+        const busyContext = {
+          o: () => ({ warn: () => {} }), Date: { now: () => 10000 },
+          ue: { tL: { lastActionTime: 0 } }, u: { DICTATION_DEBOUNCE_DELAY: 1 },
+          be: () => { notifications += 1; }, C: { Eg: { TranscriptCurrentlyProcessing: "busy" } },
+        };
+        busyContext.globalThis = busyContext;
+        busyContext.__wisprDictationBusy = () => true;
+        vm.createContext(busyContext);
+        const result = vm.runInContext(`(()=>{''${busyBody}})()`, busyContext);
+        assert.deepEqual({ ...result }, { accepted: false, error: "busy" });
+        assert.equal(notifications, 1, name + " busy refusal notifies once");
+      }
 
       const start = source.indexOf("e.app.whenReady().then(()=>{");
       const end = source.indexOf(",(0,Hn.xS)()", start);

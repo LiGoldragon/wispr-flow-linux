@@ -288,6 +288,9 @@ step3_patch_bundle() {
     auto "Running linux-status-bridge.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-status-bridge.sh" "$target_bundle" \
       || die "Status bridge patch failed; refusing to package an unverified bridge."
+    auto "Running linux-dictation-admission.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-dictation-admission.sh" "$target_bundle" \
+      || die "Dictation admission patch failed; refusing to package an unverified admission gate."
     auto "Running linux-status-meter-worklet.sh"
     bash "$SCRIPT_DIR/patches/linux-status-meter-worklet.sh" \
       "${target_bundle%/main/index.js}/renderer/dist/recorderWorklet.js" \
