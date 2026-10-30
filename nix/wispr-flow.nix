@@ -16,7 +16,7 @@
 }:
 let
   pname = "wispr-flow";
-  version = "1.6.774+criomos.11";
+  version = "1.6.774+criomos.12";
   installerSha256 = "fd30ef74f10348241e4a64ab4fc6619084ec5b7108cdc6444c3c290620861beb";
 
   #============================================================================
@@ -148,6 +148,7 @@ stdenvNoCC.mkDerivation {
     bash ${sourceRoot}/scripts/patches/linux-hub-viewport.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/linux-deeplink.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/linux-status-bridge.sh "$main_bundle"
+    bash ${sourceRoot}/scripts/patches/linux-dictation-admission.sh "$main_bundle"
     bash ${sourceRoot}/scripts/patches/linux-status-meter-worklet.sh \
       asar-contents/.webpack/renderer/dist/recorderWorklet.js
 

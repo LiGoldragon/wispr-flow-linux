@@ -49,6 +49,7 @@ declare -gA MARKER_SAMPLES=(
 	[statusmeterrenderer]='/*WISPR_LINUX_STATUS_METER_RENDERER*/'
 	[statuswindow]='"linux"!==process.platform&&e.showInactive()/*WISPR_LINUX_STATUS_WINDOW_SUPPRESSED*/;'
 	[statusreshow]='if("linux"===process.platform)return;/*WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED*/'
+	[dictationadmission]='/*WISPR_LINUX_DICTATION_ADMISSION*/globalThis.__wisprDictationAdmission={owner:null};'
 )
 
 # Write a fixture app.asar-like file containing every marker, except the one

@@ -57,6 +57,74 @@ runCommand "wispr-flow-status-bootstrap"
       try {
       const mainPath = process.env.WISPR_STATUS_MAIN;
       const source = fs.readFileSync(mainPath, "utf8");
+
+      const admissionMarker = "/*WISPR_LINUX_DICTATION_ADMISSION*/";
+      assert.equal(source.split(admissionMarker).length - 1, 1,
+        "one packaged dictation admission implementation");
+      for (const snippet of [
+        'Qe=(e=O.SB.Keyboard,t,n)=>{if(globalThis.__wisprDictationBusy())return{accepted:!1,error:"busy"};',
+        'He=(e,t)=>{if(globalThis.__wisprDictationBusy())return{accepted:!1,error:"busy"};',
+        'Ve=(e,t)=>{if(globalThis.__wisprDictationBusy())return{accepted:!1,error:"busy"};',
+        'Ze=(e,t,n)=>{if(globalThis.__wisprDictationBusy())return{accepted:!1,error:"busy"};',
+        'it=(e,t,n)=>{if(globalThis.__wisprDictationBusy())return{accepted:!1,error:"busy"};const c=crypto.randomUUID();if(!globalThis.__wisprReserveDictationOwner(c))return{accepted:!1,error:"busy"};',
+        'catch(e){throw Xe(O.W5.UserActionEscape),e}finally{_wisprAdmissionAccepted||globalThis.__wisprAbortDictationOwner?.(c)}',
+        'globalThis.__wisprMarkDictationTail?.(n),Lt=!0',
+        'globalThis.__wisprReleaseDictationOwner?.(n),Lt=!1',
+        'globalThis.__wisprAbortDictationOwner?.(p.ZZ.uuid)',
+        'globalThis.__wisprDictationAdmission?.owner?.uuid===n',
+      ]) {
+        assert.equal(source.split(snippet).length - 1, 1,
+          "one packaged admission anchor: " + snippet.slice(0, 48));
+      }
+      assert.equal(source.split(
+        'if(!Ti.KB.includes(ci.ZZ.status)||globalThis.__wisprDictationBusy())break;',
+      ).length - 1, 2, "both extension routes refuse before mutation");
+      assert.equal(source.split(
+        'R=()=>{if(globalThis.__wisprDictationBusy())return{accepted:!1,error:"busy"};N(),E=!0',
+      ).length - 1, 1, "BLE refuses before local capture mutation");
+      assert.equal(source.split(
+        'q.e.getDictionaryContext().then(e=>{if(p.ZZ.uuid!==c)return;',
+      ).length - 1, 2, "both asynchronous dictionary writes are UUID-bound");
+
+      const admissionEnd = source.indexOf(",0),Pe=", source.indexOf(admissionMarker));
+      assert.ok(admissionEnd > 0, "packaged admission initializer has an end");
+      const admissionExpression = source.slice(
+        source.indexOf(admissionMarker) + admissionMarker.length,
+        admissionEnd,
+      ) + ",0";
+      const admissionContext = {};
+      admissionContext.globalThis = admissionContext;
+      vm.createContext(admissionContext);
+      vm.runInContext("(" + admissionExpression + ")", admissionContext);
+      assert.equal(admissionContext.__wisprReserveDictationOwner("old"), true);
+      assert.equal(admissionContext.__wisprDictationBusy(), true);
+      assert.equal(admissionContext.__wisprReserveDictationOwner("new"), false,
+        "a new recording is refused while the old tail owns shared state");
+      assert.equal(admissionContext.__wisprMarkDictationTail("old"), true);
+      assert.equal(admissionContext.__wisprAbortDictationOwner("old"), false,
+        "dismissal cannot reopen admission while an old completion tail mutates");
+      let idlePublications = 0;
+      admissionContext.__wisprDictationAdmission.pendingIdle = () => { idlePublications += 1; };
+      assert.equal(admissionContext.__wisprReleaseDictationOwner("stale"), false,
+        "a stale callback cannot release another recording");
+      assert.equal(idlePublications, 0);
+      assert.equal(admissionContext.__wisprReleaseDictationOwner("old"), true);
+      assert.equal(idlePublications, 1, "deferred Idle publishes after cleanup release");
+      assert.equal(admissionContext.__wisprDictationBusy(), false);
+
+      assert.equal(admissionContext.__wisprReserveDictationOwner("aborted-capture"), true);
+      assert.equal(admissionContext.__wisprAbortDictationOwner("aborted-capture"), true,
+        "a capture that cannot produce RecordingDone releases after dismissal cleanup");
+      assert.equal(admissionContext.__wisprDictationBusy(), false);
+
+      assert.equal(admissionContext.__wisprReserveDictationOwner("throws"), true);
+      await assert.rejects((async () => {
+        try { throw new Error("cleanup"); }
+        finally { admissionContext.__wisprReleaseDictationOwner("throws"); }
+      })(), /cleanup/);
+      assert.equal(admissionContext.__wisprDictationBusy(), false,
+        "outer cleanup failure still releases the exact owner");
+
       const start = source.indexOf("e.app.whenReady().then(()=>{");
       const end = source.indexOf(",(0,Hn.xS)()", start);
       assert.ok(start >= 0 && end > start, "missing executable main startup path");
@@ -290,10 +358,12 @@ runCommand "wispr-flow-status-bootstrap"
             Error: "Error",
           },
           SB: { Deeplink: "wispr-flow:" },
+          W5: { UserActionEscape: "escape" },
         },
         z: {
           Qw: async () => calls.push("start"),
           US: async () => calls.push("stop"),
+          t3: () => calls.push("dismiss"),
         },
         e: true,
       };
@@ -314,17 +384,17 @@ runCommand "wispr-flow-status-bootstrap"
         ["Idle", false, "start", true],
         ["Dismissed", false, "start", true],
         ["Listening", true, "stop", false],
+        ["Error", true, "start", true],
       ]) {
         calls.length = 0;
         hookContext.S.ZZ.status = state;
         hookContext.S.ZZ.isLocked = locked;
         assert.deepEqual({ ...await toggle() }, { hands_free: handsFree });
-        assert.deepEqual(calls, [action]);
+        assert.deepEqual(calls, state === "Error" ? ["dismiss", action] : [action]);
       }
       for (const [state, locked] of [
         ["Listening", false],
         ["Processing", true],
-        ["Error", true],
       ]) {
         calls.length = 0;
         hookContext.S.ZZ.status = state;
@@ -335,6 +405,25 @@ runCommand "wispr-flow-status-bootstrap"
         });
         assert.deepEqual(calls, []);
       }
+
+      let admissionPhase = "capture";
+      hookContext.__wisprDictationBusy = () => admissionPhase !== null;
+      hookContext.z.t3 = () => {
+        calls.push("dismiss");
+        if (admissionPhase === "capture") admissionPhase = null;
+      };
+      calls.length = 0;
+      hookContext.S.ZZ.status = "Error";
+      assert.deepEqual({ ...await toggle() }, { hands_free: true });
+      assert.deepEqual(calls, ["dismiss", "start"],
+        "Error recovery cleans a capture owner before readmission");
+      admissionPhase = "tail";
+      calls.length = 0;
+      assert.deepEqual({ ...await toggle() }, { ok: false, error: "busy" });
+      assert.deepEqual(calls, ["dismiss"],
+        "Error recovery cannot readmit while a completion tail still owns state");
+
+      hookContext.S.ZZ.status = "Error";
       vm.runInContext(lockExpression, hookContext);
       assert.deepEqual({ ...publications.pop() }, {
         state: "Error",

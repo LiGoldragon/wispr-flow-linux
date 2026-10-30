@@ -7,7 +7,7 @@
 	local main="$copy/.webpack/main/index.js"
 	[[ ! -f "$WISPR_FLOW_AUDIT_APP/.webpack/main/index.js.orig" ]] \
 		|| cp "$WISPR_FLOW_AUDIT_APP/.webpack/main/index.js.orig" "$main"
-	for patch in helper-resolver.sh mac-gates.sh helper-env.sh linux-window-frame.sh linux-hub-viewport.sh linux-deeplink.sh linux-status-bridge.sh; do
+	for patch in helper-resolver.sh mac-gates.sh helper-env.sh linux-window-frame.sh linux-hub-viewport.sh linux-deeplink.sh linux-status-bridge.sh linux-dictation-admission.sh; do
 		bash "$BATS_TEST_DIRNAME/../scripts/patches/$patch" "$main"
 	done
 	for renderer in "$copy"/.webpack/renderer/*/index.js; do
@@ -48,8 +48,8 @@ const context = {
   n: () => ({ error: () => {}, warn: () => {} }),
   p: { ZZ: { status: "Idle" } },
   S: { ZZ: { status: "Idle", isLocked: false } },
-  c: { _W: { Idle: "Idle", Dismissed: "Dismissed", Listening: "Listening", Processing: "Processing", Error: "Error" }, B8: ["Listening", "Processing"] , SB: { Deeplink: "wispr-flow:" } },
-  z: { Qw: async () => calls.push("start"), US: async () => calls.push("stop") },
+  c: { _W: { Idle: "Idle", Dismissed: "Dismissed", Listening: "Listening", Processing: "Processing", Error: "Error" }, B8: ["Listening", "Processing"] , SB: { Deeplink: "wispr-flow:" }, W5: { UserActionEscape: "escape" } },
+  z: { Qw: async () => calls.push("start"), US: async () => calls.push("stop"), t3: () => calls.push("dismiss") },
   y: { H8: true }, J: false, F: { setEnabled: () => {} }, ie: { RA: { statusWindow: { isDestroyed: () => false, showInactive: () => {} } } }, noop: () => {},
   globalThis: {
     __wisprStatusSnapshot: state => ({ state: state.toLowerCase(), hands_free: context.S.ZZ.isLocked }),
@@ -65,20 +65,22 @@ vm.runInContext(source, context);
     ["Idle", false, "start", true],
     ["Dismissed", false, "start", true],
     ["Listening", true, "stop", false],
+    ["Error", true, "start", true],
   ]) {
     calls.length = 0;
     context.S.ZZ.status = state;
     context.S.ZZ.isLocked = locked;
     assert.deepEqual({ ...await toggle() }, { hands_free: mode });
-    assert.deepEqual(calls, [expected]);
+    assert.deepEqual(calls, state === "Error" ? ["dismiss", expected] : [expected]);
   }
-  for (const [state, locked] of [["Listening", false], ["Processing", true], ["Error", true]]) {
+  for (const [state, locked] of [["Listening", false], ["Processing", true]]) {
     calls.length = 0;
     context.S.ZZ.status = state;
     context.S.ZZ.isLocked = locked;
     assert.deepEqual({ ...await toggle() }, { ok: false, error: "not_toggleable" });
     assert.deepEqual(calls, []);
   }
+  context.S.ZZ.status = "Error";
   context.globalThis.setLocked(true);
   assert.deepEqual({ ...publications.pop() }, { state: "error", hands_free: true });
 })().catch(error => { console.error(error); process.exitCode = 1; });

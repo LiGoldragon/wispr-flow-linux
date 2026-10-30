@@ -60,6 +60,7 @@ MARKERS=(
   "status bridge: renderer scalar-meter validation|F|WISPR_LINUX_STATUS_METER_RENDERER"
   "status bridge: Status window suppressed on Linux|F|WISPR_LINUX_STATUS_WINDOW_SUPPRESSED"
   "status bridge: dictation cannot re-show Status window|F|WISPR_LINUX_STATUS_DICTATION_RESHOW_SUPPRESSED"
+  "dictation admission: one owner through final cleanup|F|WISPR_LINUX_DICTATION_ADMISSION"
 )
 
 missing=0

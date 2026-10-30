@@ -27,6 +27,8 @@ if grep -q "$MARKER" "$BUNDLE"; then
     && grep -qF 'globalThis.__wisprStatusToggleHandsFree=async()=>' "$BUNDLE" \
     && grep -qF 'globalThis.__wisprStatusBridge?.setToggleHandsFree(globalThis.__wisprStatusToggleHandsFree)' "$BUNDLE" \
     && grep -qF 'await(0,z.Qw)(c.SB.Deeplink)' "$BUNDLE" \
+    && grep -qF 'if(globalThis.__wisprDictationBusy?.()&&e!==c._W.Error)return{ok:!1,error:"busy"}' "$BUNDLE" \
+    && grep -qF 'if(e===c._W.Error)(0,z.t3)(c.W5.UserActionEscape)' "$BUNDLE" \
     && grep -qF 'await(0,z.US)(c.SB.Deeplink)' "$BUNDLE" \
     && grep -qF '"linux"!==process.platform&&e.showInactive()' "$BUNDLE" \
     && node --check "$BUNDLE" \
@@ -59,7 +61,7 @@ status_assignment = 'const i=p.ZZ.status;p.ZZ.status=e,p.ZZ.statusLastUpdatedTim
 data = replace_once(status_assignment, 'const i=p.ZZ.status;p.ZZ.status=e,p.ZZ.statusLastUpdatedTime=Date.now(),"Listening"!==e&&"Initializing"!==e&&globalThis.__wisprStatusBridge?.publishMeter({capture:"unavailable"}),globalThis.__wisprStatusBridge?.publish(globalThis.__wisprStatusSnapshot(e))/*WISPR_LINUX_STATUS_PUBLICATION*/;', "status publication")
 
 hands_free = 'const Q=()=>{try{const e=S.ZZ.status;'
-control_hook = '''/*WISPR_LINUX_STATUS_CONTROL_BEGIN*/globalThis.__wisprStatusToggleHandsFree=async()=>{const e=S.ZZ.status;if(e===c._W.Idle||e===c._W.Dismissed)return await(0,z.Qw)(c.SB.Deeplink),{hands_free:!0};if(e===c._W.Listening&&S.ZZ.isLocked)return await(0,z.US)(c.SB.Deeplink),{hands_free:!1};return{ok:!1,error:"not_toggleable"}},globalThis.__wisprStatusBridge?.setToggleHandsFree(globalThis.__wisprStatusToggleHandsFree);/*WISPR_LINUX_STATUS_CONTROL_END*//*WISPR_LINUX_STATUS_CONTROL*/const Q=()=>{try{const e=S.ZZ.status;'''
+control_hook = '''/*WISPR_LINUX_STATUS_CONTROL_BEGIN*/globalThis.__wisprStatusToggleHandsFree=async()=>{const e=S.ZZ.status;if(globalThis.__wisprDictationBusy?.()&&e!==c._W.Error)return{ok:!1,error:"busy"};if(e===c._W.Error)(0,z.t3)(c.W5.UserActionEscape);if(globalThis.__wisprDictationBusy?.())return{ok:!1,error:"busy"};if(e===c._W.Error||e===c._W.Idle||e===c._W.Dismissed){const e=await(0,z.Qw)(c.SB.Deeplink);return e?.accepted===!1?{ok:!1,error:e.error}:{hands_free:!0}}if(e===c._W.Listening&&S.ZZ.isLocked)return await(0,z.US)(c.SB.Deeplink),{hands_free:!1};return{ok:!1,error:"not_toggleable"}},globalThis.__wisprStatusBridge?.setToggleHandsFree(globalThis.__wisprStatusToggleHandsFree);/*WISPR_LINUX_STATUS_CONTROL_END*//*WISPR_LINUX_STATUS_CONTROL*/const Q=()=>{try{const e=S.ZZ.status;'''
 data = replace_once(hands_free, control_hook, "actual hands-free action")
 
 lock_mutator = re.compile(r'S\.ZZ\.isLocked=(?P<value>[^,;]+)(?P<delimiter>[,;])')
