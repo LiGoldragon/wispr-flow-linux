@@ -240,6 +240,8 @@ runCommand "wispr-flow-status-bootstrap"
           o: () => ({ warn: () => {} }), Date: { now: () => 10000 },
           ue: { tL: { lastActionTime: 0 } }, u: { DICTATION_DEBOUNCE_DELAY: 1 },
           be: () => { notifications += 1; }, C: { Eg: { TranscriptCurrentlyProcessing: "busy" } },
+          p: { ZZ: { status: "Idle" } },
+          O: { _W: { Listening: "Listening", Initializing: "Initializing" }, B8: ["Listening", "Initializing"] },
         };
         busyContext.globalThis = busyContext;
         busyContext.__wisprDictationBusy = () => true;
@@ -247,7 +249,124 @@ runCommand "wispr-flow-status-bootstrap"
         const result = vm.runInContext(`(()=>{''${busyBody}})()`, busyContext);
         assert.deepEqual({ ...result }, { accepted: false, error: "busy" });
         assert.equal(notifications, 1, name + " busy refusal notifies once");
+        busyContext.p.ZZ.status = "Listening";
+        notifications = 0;
+        assert.equal(vm.runInContext(`(()=>{''${busyBody}})()`, busyContext), undefined,
+          name + " admission guard preserves its active-session branch");
+        assert.equal(notifications, 0,
+          name + " active-session control is not reported as a new busy capture");
       }
+
+      const wrapperHeads = {
+        Qe: "Qe=(e=O.SB.Keyboard,t,n)=>{",
+        He: "He=(e,t)=>{",
+        Ve: "Ve=(e,t)=>{",
+        Ze: "Ze=(e,t,n)=>{",
+      };
+      const dictationWrapperStart = source.indexOf(wrapperHeads.Qe);
+      assert.ok(dictationWrapperStart >= 0, "actual dictation wrapper group is present");
+      const extractWrapper = (name, next) => {
+        const start = source.indexOf(wrapperHeads[name], dictationWrapperStart);
+        const end = source.indexOf("," + next + "=", start);
+        assert.ok(start >= 0 && end > start, "actual " + name + " wrapper is present");
+        return source.slice(start + name.length + 1, end);
+      };
+      const activeCalls = [];
+      const activeContext = {
+        se: { BV: () => ({ popoTestingMode: false }) },
+        p: { ZZ: { status: "Listening", isCommandMode: false, isInstructMode: false,
+          startTime: 0, isLocked: true } },
+        O: { _W: { Testing: "Testing", Initializing: "Initializing", Listening: "Listening" },
+          SB: { Keyboard: "Keyboard", StatusIndicator: "StatusIndicator" },
+          B8: ["Listening", "Initializing"], lz: "onboarded", S$: "setup",
+          W5: { DebounceTriplePress: "triple", DebouncePOPO: "popo" } },
+        I: { P$: () => true },
+        ie: { RA: { prefs: { user: { pagesCompleted: [], onboardingCompleted: true,
+          commandModeEnabled: true }, subscription: {}, enterprise: { subscription: {} } } } },
+        o: () => ({ info: () => {}, warn: () => {}, error: () => {}, debug: () => {} }),
+        Pe: () => false,
+        ue: { tL: { lastActionTime: 0 } },
+        u: { DICTATION_DEBOUNCE_DELAY: 1, MID_DICTATION_INSTRUCT_GRACE_MS: 1000 },
+        be: () => {}, C: { Eg: { TranscriptCurrentlyProcessing: "busy",
+          CommandModeDisabled: "disabled", FirstTimeUsingCommandMode: "first",
+          UsingCommandMode: "using" } },
+        d: { Ym: () => {} }, m: { eJ: () => {} }, K: { Bn: () => {} },
+        _: { LF: { POPO: "popo", CommandModeStatus: "command", InstructModeStatus: "instruct" } },
+        it: () => { throw new Error("active control attempted a new capture"); },
+        ot: source => activeCalls.push(["stop", source]),
+        Ue: (...args) => activeCalls.push(["keyup", ...args]),
+        je: () => "shortcut", ze: () => {},
+        T: { SG: () => true }, X: { _Y: () => {}, Tc: () => false }, pe: () => ({}),
+        $: { v: () => null, A: { prefetch: () => {} } },
+        ee: { trackPosthogEvent: () => {} }, x: { qx: () => {} },
+        Ne: Date.now(), Date,
+      };
+      activeContext.globalThis = activeContext;
+      activeContext.__wisprDictationBusy = () => true;
+      vm.createContext(activeContext);
+      const actualPTT = vm.runInContext("(" + extractWrapper("Qe", "He") + ")", activeContext);
+      actualPTT();
+      assert.deepEqual(activeCalls.splice(0), [["stop", "Keyboard"]],
+        "busy owner preserves the actual locked PTT stop branch");
+      const actualLens = vm.runInContext("(" + extractWrapper("He", "Ve") + ")", activeContext);
+      actualLens("lens-key", "lens-code");
+      assert.deepEqual(activeCalls.splice(0), [["keyup", "lens-key", "lens-code"]],
+        "busy owner preserves the actual active Lens release branch");
+      const instructBody = extractWrapper("Ve", "Ge");
+      const runActualInstruct = ({ busy, locked }) => {
+        const calls = [];
+        const now = Date.now();
+        const context = {
+          p: { ZZ: { status: "Listening", isCommandMode: false, isInstructMode: false,
+            startTime: now, isLocked: locked } },
+          O: { _W: { Initializing: "Initializing", Listening: "Listening" },
+            SB: { Keyboard: "Keyboard" }, B8: ["Listening", "Initializing"],
+            lz: "onboarded", W5: { DebounceTriplePress: "triple" } },
+          I: { P$: () => true },
+          ie: { RA: { prefs: { user: { pagesCompleted: [], onboardingCompleted: true },
+            subscription: {}, enterprise: { subscription: {} } } } },
+          o: () => ({ info: () => {}, warn: () => {}, debug: () => {} }),
+          Pe: () => false, ue: { tL: { lastActionTime: 0 } },
+          u: { DICTATION_DEBOUNCE_DELAY: 1, MID_DICTATION_INSTRUCT_GRACE_MS: 1000 },
+          be: () => calls.push(["notify"]), C: { Eg: { TranscriptCurrentlyProcessing: "busy" } },
+          $: { v: () => null, A: { prefetch: () => {} } },
+          m: { eJ: () => {} }, d: { Ym: () => {} }, pe: () => ({}),
+          K: { Bn: () => {} }, _: { LF: { InstructModeStatus: "instruct" } },
+          ee: { trackPosthogEvent: () => {} },
+          Ue: (...args) => calls.push(["keyup", ...args]),
+          x: { qx: () => calls.push(["transition"]) },
+          ot: source => calls.push(["stop", source]),
+          it: () => calls.push(["new-capture"]),
+          Ne: 0, Date,
+        };
+        context.globalThis = context;
+        context.__wisprDictationBusy = () => busy;
+        vm.createContext(context);
+        const actualInstruct = vm.runInContext("(" + instructBody + ")", context);
+        const result = actualInstruct("instruct-key", "instruct-code");
+        return { result, calls, state: {
+          isLocked: context.p.ZZ.isLocked,
+          isInstructMode: context.p.ZZ.isInstructMode,
+          isCommandMode: context.p.ZZ.isCommandMode,
+        } };
+      };
+      for (const locked of [true, false]) {
+        const baseline = runActualInstruct({ busy: false, locked });
+        const guarded = runActualInstruct({ busy: true, locked });
+        assert.deepEqual(guarded, baseline,
+          "busy owner preserves actual Instruct behavior for locked=" + locked);
+        assert.equal(guarded.calls.some(call => call[0] === "new-capture"), false,
+          "actual active Instruct wrapper cannot start a replacement capture");
+      }
+      assert.deepEqual(runActualInstruct({ busy: false, locked: true }).calls,
+        [["stop", "Keyboard"]], "baseline locked Instruct stops its current session");
+      assert.deepEqual(runActualInstruct({ busy: false, locked: false }).calls,
+        [["keyup", "instruct-key", "instruct-code"], ["transition"]],
+        "baseline unlocked Instruct transitions the current session");
+      const actualPOPO = vm.runInContext("(" + extractWrapper("Ze", "Xe") + ")", activeContext);
+      actualPOPO("StatusIndicator", "popo-key", "popo-code");
+      assert.deepEqual(activeCalls.splice(0), [["stop", "StatusIndicator"]],
+        "busy owner preserves the actual active POPO stop branch");
 
       const start = source.indexOf("e.app.whenReady().then(()=>{");
       const end = source.indexOf(",(0,Hn.xS)()", start);
@@ -546,6 +665,14 @@ runCommand "wispr-flow-status-bootstrap"
       assert.deepEqual({ ...await toggle() }, { ok: false, error: "busy" });
       assert.deepEqual(calls, ["dismiss"],
         "Error recovery cannot readmit while a completion tail still owns state");
+      calls.length = 0;
+      hookContext.S.ZZ.status = "Listening";
+      hookContext.S.ZZ.isLocked = true;
+      assert.deepEqual({ ...await toggle() }, { hands_free: false });
+      assert.deepEqual(calls, ["stop"],
+        "a busy capture owner can still stop its own locked Listening session");
+      assert.equal(admissionPhase, "tail",
+        "control stop cannot release a completion-tail owner");
 
       hookContext.S.ZZ.status = "Error";
       vm.runInContext(lockExpression, hookContext);

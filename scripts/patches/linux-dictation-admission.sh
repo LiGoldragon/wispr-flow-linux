@@ -89,17 +89,18 @@ module_replace_once(processing_predicate, admission, 'processing predicate')
 # emits TranscriptCurrentlyProcessing once. For owner states outside that
 # branch, refuse before each wrapper's first mode/capture mutation and reuse the
 # same notification.
-busy_ui = 'if(globalThis.__wisprDictationBusy())return o().warn("Dictation admission is busy while the previous dictation finishes"),Date.now()-ue.tL.lastActionTime>u.DICTATION_DEBOUNCE_DELAY&&be(C.Eg.TranscriptCurrentlyProcessing),{accepted:!1,error:"busy"};'
-for anchor, label, marker in (
-    ('void(Date.now()-ue.tL.lastActionTime>u.DICTATION_DEBOUNCE_DELAY&&be(C.Eg.TranscriptCurrentlyProcessing));if(!(0,I.P$)', 'PTT entry', 'PTT'),
-    ('void(Date.now()-ue.tL.lastActionTime>u.DICTATION_DEBOUNCE_DELAY&&be(C.Eg.TranscriptCurrentlyProcessing));if(!p.ZZ.isLocked)', 'Lens entry', 'LENS'),
-    ('void(Date.now()-ue.tL.lastActionTime>u.DICTATION_DEBOUNCE_DELAY&&be(C.Eg.TranscriptCurrentlyProcessing));const r=Date.now()-Ne', 'Instruct entry', 'INSTRUCT'),
-    ('void(Date.now()-ue.tL.lastActionTime>u.DICTATION_DEBOUNCE_DELAY&&be(C.Eg.TranscriptCurrentlyProcessing));if(O.B8.includes', 'POPO entry', 'POPO'),
+busy_ui = 'return o().warn("Dictation admission is busy while the previous dictation finishes"),Date.now()-ue.tL.lastActionTime>u.DICTATION_DEBOUNCE_DELAY&&be(C.Eg.TranscriptCurrentlyProcessing),{accepted:!1,error:"busy"};'
+for anchor, label, marker, new_capture in (
+    ('void(Date.now()-ue.tL.lastActionTime>u.DICTATION_DEBOUNCE_DELAY&&be(C.Eg.TranscriptCurrentlyProcessing));if(!(0,I.P$)', 'PTT entry', 'PTT', 'p.ZZ.status!==O._W.Listening&&p.ZZ.status!==O._W.Initializing'),
+    ('void(Date.now()-ue.tL.lastActionTime>u.DICTATION_DEBOUNCE_DELAY&&be(C.Eg.TranscriptCurrentlyProcessing));if(!p.ZZ.isLocked)', 'Lens entry', 'LENS', 'p.ZZ.status!==O._W.Listening&&p.ZZ.status!==O._W.Initializing'),
+    ('void(Date.now()-ue.tL.lastActionTime>u.DICTATION_DEBOUNCE_DELAY&&be(C.Eg.TranscriptCurrentlyProcessing));const r=Date.now()-Ne', 'Instruct entry', 'INSTRUCT', 'p.ZZ.status!==O._W.Listening&&p.ZZ.status!==O._W.Initializing'),
+    ('void(Date.now()-ue.tL.lastActionTime>u.DICTATION_DEBOUNCE_DELAY&&be(C.Eg.TranscriptCurrentlyProcessing));if(O.B8.includes', 'POPO entry', 'POPO', '!O.B8.includes(p.ZZ.status)'),
 ):
     first, second = anchor.split(';', 1)
     replacement = (
         first + ';/*WISPR_LINUX_DICTATION_BUSY_' + marker + '_BEGIN*/' +
-        busy_ui + '/*WISPR_LINUX_DICTATION_BUSY_' + marker + '_END*/' + second
+        'if(globalThis.__wisprDictationBusy()&&' + new_capture + ')' + busy_ui +
+        '/*WISPR_LINUX_DICTATION_BUSY_' + marker + '_END*/' + second
     )
     module_replace_once(anchor, replacement, label)
 
