@@ -285,6 +285,12 @@ step3_patch_bundle() {
     auto "Running linux-deeplink.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-deeplink.sh" "$target_bundle" \
       || warn "Deep-link patch failed -- see linux-deeplink.sh output above."
+    # A second launch must stop at the single-instance check: app.quit() is
+    # asynchronous, so the losing instance otherwise opens the database and
+    # claims the status-bridge socket before it quits.
+    auto "Running linux-single-instance.sh on $target_bundle"
+    bash "$SCRIPT_DIR/patches/linux-single-instance.sh" "$target_bundle" \
+      || die "Single-instance patch failed; refusing to package a second-launch crash."
     auto "Running linux-status-bridge.sh on $target_bundle"
     bash "$SCRIPT_DIR/patches/linux-status-bridge.sh" "$target_bundle" \
       || die "Status bridge patch failed; refusing to package an unverified bridge."

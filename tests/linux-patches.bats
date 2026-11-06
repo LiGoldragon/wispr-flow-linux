@@ -7,6 +7,7 @@
 #   * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows bind
 #                                           (bridge stays honest; no preload touched)
 #   * linux-deeplink.sh                  -> cold-start wispr-flow: argv parse on Linux
+#   * linux-single-instance.sh           -> second launch exits at the lock check
 #
 # The real bundle is the proprietary, gitignored app -- not available in CI -- so
 # each test drives a hermetic minified-JS FIXTURE carrying the exact anchor the
@@ -318,4 +319,44 @@ JS
 	run bash "$PATCH_DIR/linux-deeplink.sh" "$FIX"
 	[[ "$status" -ne 0 ]]
 	! grep -q 'WISPR_LINUX_DEEPLINK' "$FIX"
+}
+
+# =============================================================================
+# linux-single-instance.sh
+# =============================================================================
+
+write_single_instance_fixture() {
+	cat > "$FIX" <<'JS'
+const calls=[];const n=()=>({warn:m=>calls.push(m)});
+const e={app:{requestSingleInstanceLock:()=>!1,quit:()=>calls.push("quit"),exit:c=>calls.push("exit:"+c)}};
+(()=>{let t;if(t=!0,!e.app.requestSingleInstanceLock())return n().warn("App is already running, quitting"),void e.app.quit();calls.push("startup")})(),console.log(calls.join(","));
+JS
+}
+
+@test "single-instance: losing launch exits at the lock check on linux" {
+	write_single_instance_fixture
+	run bash "$PATCH_DIR/linux-single-instance.sh" "$FIX"
+	[[ "$status" -eq 0 ]]
+	grep -q 'WISPR_LINUX_SINGLE_INSTANCE_EXIT' "$FIX"
+	grep -qF 'void("linux"===process.platform?e.app.exit(0):e.app.quit())' "$FIX"
+	node_check "$FIX"
+	if command -v node >/dev/null; then
+		run node "$FIX"
+		[[ "$output" == "App is already running, quitting,exit:0" ]]
+	fi
+}
+
+@test "single-instance: idempotent on second run" {
+	write_single_instance_fixture
+	bash "$PATCH_DIR/linux-single-instance.sh" "$FIX"
+	assert_idempotent "$PATCH_DIR/linux-single-instance.sh" "$FIX"
+}
+
+@test "single-instance: bails non-zero when the lock guard is absent" {
+	cat > "$FIX" <<'JS'
+const e={app:{quit(){}}};e.app.quit();
+JS
+	run bash "$PATCH_DIR/linux-single-instance.sh" "$FIX"
+	[[ "$status" -ne 0 ]]
+	! grep -q 'WISPR_LINUX_SINGLE_INSTANCE_EXIT' "$FIX"
 }

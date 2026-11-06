@@ -38,6 +38,7 @@ declare -gA MARKER_SAMPLES=(
 	[hubviewport]='"linux"===process.platform?(()=>{/*WISPR_LINUX_HUB_VIEWPORT*/})():n.setMinimumSize(_.eh.width,_.eh.height);'
 	[treataswindows]='const x=((y?.platform?.isWindows??!1)||"linux"===y?.platform?.os)/*WISPR_LINUX_RENDERER_ISWIN*/;'
 	[deeplink]='if(f.H8||"linux"===process.platform){/*WISPR_LINUX_DEEPLINK*/const e=process.argv.find(x=>x.startsWith("wispr-flow:"));}'
+	[singleinstance]='void("linux"===process.platform?e.app.exit(0):e.app.quit())/*WISPR_LINUX_SINGLE_INSTANCE_EXIT*/;'
 	[statusbootstrap]='/*WISPR_LINUX_STATUS_BOOTSTRAP*/'
 	[statusbridge]='globalThis.__wisprStatusBridge=/*WISPR_LINUX_STATUS_BRIDGE*/bridge;'
 	[statuslifecycle]='/*WISPR_LINUX_STATUS_LIFECYCLE*/'

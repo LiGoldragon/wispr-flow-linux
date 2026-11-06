@@ -11,6 +11,7 @@
 #     * mac-gates.sh           -> gates the macOS Applications-folder guard
 #     * linux-window-frame.sh  -> frameless hub/settings window on Linux
 #     * linux-deeplink.sh      -> cold-start wispr-flow: argv parse on Linux
+#     * linux-single-instance.sh -> second launch exits at the lock check
 #   renderer bundles:
 #     * linux-renderer-chrome.sh -> remaps the <html> platform class linux->win32
 #     * linux-renderer-treat-as-windows.sh -> widens each renderer's isWindows
@@ -49,6 +50,7 @@ MARKERS=(
   "hub-viewport: Flow Hub work-area and onboarding safety|F|WISPR_LINUX_HUB_VIEWPORT"
   "treat-as-windows: linux widens renderer isWindows bind|F|WISPR_LINUX_RENDERER_ISWIN"
   "deeplink: linux cold-start argv parse|F|WISPR_LINUX_DEEPLINK"
+  "single-instance: second launch exits at the lock check|F|WISPR_LINUX_SINGLE_INSTANCE_EXIT"
   "status bridge: unconditional Electron-main bootstrap|F|WISPR_LINUX_STATUS_BOOTSTRAP"
   "status bridge: authoritative Linux lifecycle/control bridge|F|WISPR_LINUX_STATUS_BRIDGE"
   "status bridge: lifecycle publication hook|F|WISPR_LINUX_STATUS_LIFECYCLE"
