@@ -1,14 +1,14 @@
-{ fetchurl, stdenv }:
+{
+  fetchurl,
+  stdenv,
+  callPackage,
+}:
 let
   assets = {
     x86_64-linux = {
       helper = {
         url = "https://github.com/LiGoldragon/helper/releases/download/v0.1.3/wispr-flow-linux-helper-x86_64";
         hash = "sha256-wOV0Rn2hzECCVo7ngTx0RTGrhGWz4t56aQcQ3wSilK8=";
-      };
-      betterSqlite = {
-        url = "https://github.com/wispr-flow-linux/native-modules/releases/download/native-v1/better_sqlite3-x86_64.node";
-        hash = "sha256-omxv7HC7bTHDhglJGwORuOrfPZwsxYTVTxYBhX4JDj8=";
       };
       sqlite = {
         url = "https://github.com/wispr-flow-linux/native-modules/releases/download/native-v1/node_sqlite3-x86_64.node";
@@ -19,10 +19,6 @@ let
       helper = {
         url = "https://github.com/LiGoldragon/helper/releases/download/v0.1.3/wispr-flow-linux-helper-aarch64";
         hash = "sha256-azv26fd8PN5ysaybRocytdaQeOMd88ovaj7VZsOTbmU=";
-      };
-      betterSqlite = {
-        url = "https://github.com/wispr-flow-linux/native-modules/releases/download/native-v1/better_sqlite3-aarch64.node";
-        hash = "sha256-UMAJvqy2usjulV3Yk0GLS2ymNvuMXQsH2qXqdEAL+Vc=";
       };
       sqlite = {
         url = "https://github.com/wispr-flow-linux/native-modules/releases/download/native-v1/node_sqlite3-aarch64.node";
@@ -36,6 +32,8 @@ let
 in
 {
   helper = fetchurl (selected.helper // { executable = true; });
-  betterSqlite = fetchurl selected.betterSqlite;
+  # Compiled against the package's own Electron: the V8 ABI changes with every
+  # Electron major, so this one is built here rather than fetched.
+  betterSqlite = callPackage ./better-sqlite3.nix { };
   sqlite = fetchurl selected.sqlite;
 }

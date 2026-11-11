@@ -30,6 +30,12 @@ Flow app version is tracked separately by the `+wispr{X.Y.Z}` suffix.
   Electron-main bridge startup, before clients can reach the control socket.
 - Nix package `1.6.774+criomos.11` routes meter messages at the recorder
   handler entry, before upstream raw-audio decoding reads their array payload.
+- Nix package `1.6.774+criomos.12` runs on nixpkgs' `electron_43` (Electron
+  43.8.3, V8 15.0, ABI 148) and compiles `better-sqlite3-multiple-ciphers`
+  from source against that Electron's headers, asserting the ABI at build
+  time; `electron_42` is end-of-life and insecure there. `node_sqlite3` is
+  N-API and stays a pinned prebuilt. The non-Nix release scripts still target
+  Electron 42.
 
 ### Fixed
 

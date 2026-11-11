@@ -2,7 +2,7 @@
   description = "Wispr Flow voice dictation for Linux (unofficial)";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:LiGoldragon/nixpkgs";
   };
 
   outputs =

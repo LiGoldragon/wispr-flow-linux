@@ -2,7 +2,7 @@
   lib,
   stdenvNoCC,
   runtimeInputs,
-  electron_42,
+  electron_43,
   p7zip,
   icoutils,
   imagemagick,
@@ -16,7 +16,7 @@
 }:
 let
   pname = "wispr-flow";
-  version = "1.6.774+criomos.11";
+  version = "1.6.774+criomos.12";
   installerSha256 = "fd30ef74f10348241e4a64ab4fc6619084ec5b7108cdc6444c3c290620861beb";
 
   #============================================================================
@@ -53,7 +53,7 @@ let
   # (.pak files, locales/, etc.). We copy the ELF into our own tree so that
   # /proc/self/exe — and therefore process.resourcesPath — resolves to a dir
   # that contains the app's resources, not stock electron's.
-  electronUnwrapped = electron_42.passthru.unwrapped or electron_42;
+  electronUnwrapped = electron_43.passthru.unwrapped or electron_43;
   electronDir = "${electronUnwrapped}/libexec/electron";
 
   desktopItem = makeDesktopItem {
@@ -101,7 +101,7 @@ stdenvNoCC.mkDerivation {
   # staging scripts' deterministic parts directly is the cleaner path.
   #
   # The installer contains Windows native modules.  Runtime inputs pin the
-  # matching Electron-42 Linux modules and helper, outside the proprietary
+  # matching Electron-43 Linux modules and helper, outside the proprietary
   # payload, so this package never falls back to PE binaries.
   #==========================================================================
   buildPhase = ''
@@ -181,7 +181,7 @@ stdenvNoCC.mkDerivation {
     native_rel=.webpack/main/native_modules/build/Release
     for root in asar-contents stage/app.asar.unpacked; do
       mkdir -p "$root/$native_rel"
-      install -m 0644 ${runtimeInputs.betterSqlite} "$root/$native_rel/better_sqlite3.node"
+      install -m 0644 ${runtimeInputs.betterSqlite}/better_sqlite3.node "$root/$native_rel/better_sqlite3.node"
       install -m 0644 ${runtimeInputs.sqlite} "$root/$native_rel/node_sqlite3.node"
       rm -f "$root/.webpack/main/native_modules/lib/crypt32-"*.node || true
     done
@@ -240,11 +240,11 @@ stdenvNoCC.mkDerivation {
     ln -s $electron_tree/resources $out/lib/wispr-flow/resources
 
     #-- Electron wrapper: keep stock electron's GTK/GIO/GDK env, exec our ELF -
-    head -n -1 ${electron_42}/bin/electron > $electron_tree/electron-wrapper
+    head -n -1 ${electron_43}/bin/electron > $electron_tree/electron-wrapper
     echo "exec \"$electron_tree/wispr-flow\" \"\$@\"" >> $electron_tree/electron-wrapper
     chmod +x $electron_tree/electron-wrapper
     substituteInPlace $electron_tree/electron-wrapper \
-      --replace-quiet "${electron_42}/libexec/electron/chrome-sandbox" \
+      --replace-quiet "${electron_43}/libexec/electron/chrome-sandbox" \
         "$electron_tree/chrome-sandbox"
 
     #-- Icons ----------------------------------------------------------------
